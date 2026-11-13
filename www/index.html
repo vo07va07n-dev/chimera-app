@@ -54,7 +54,7 @@ input{flex:1;padding:10px;border-radius:20px;border:1px solid #00e5ff44;backgrou
 </header>
 
 <div class="orb-wrap"><div class="orb" id="orb"></div></div>
-<div id="chat"><div class="msg p">Привет! Я Chimera. Нажми на микрофон и говори.</div></div>
+<div id="chat"><div class="msg p">Привет! Я Chimera. Нажми на микрофон и говори. Если я говорю слишком долго — просто нажми на сферу, и я замолчу.</div></div>
 
 <div class="row">
 <button class="cb on" id="c1">🎩 Дворецкий</button>
@@ -81,15 +81,13 @@ input{flex:1;padding:10px;border-radius:20px;border:1px solid #00e5ff44;backgrou
 </div>
 
 <script>
-// Инициализация Capacitor
 const isNative = window.Capacitor !== undefined;
 const nTTS = isNative ? window.Capacitor.Plugins.TextToSpeech : null;
 const nSTT = isNative ? window.Capacitor.Plugins.SpeechRecognition : null;
 
 var $ = id => document.getElementById(id);
-var S = { key: localStorage.p_key||'', char:'butler', speaking:false };
+var S = { key: localStorage.p_key||'', char:'butler', speaking:false, listening:false };
 
-// СТРОГИЕ ПРОМПТЫ (Запрещаем использовать символы)
 var strictRule = " ВАЖНО: Пиши только чистый текст. Строго запрещено использовать звездочки (*), решетки (#), кавычки, апострофы и другие символы форматирования.";
 
 var CHARS = {
@@ -111,13 +109,12 @@ setTimeout(() => {
   }
 }, 1000);
 
-// ФУНКЦИЯ ОЧИСТКИ ТЕКСТА
 function cleanText(text) {
   if (!text) return '';
   return text
-    .replace(/[*_#`~]/g, '')      // Удаляем звездочки, решетки, подчеркивания
-    .replace(/["'«»]/g, '')       // Удаляем кавычки и апострофы
-    .replace(/\s+/g, ' ')         // Убираем двойные пробелы
+    .replace(/[*_#`~]/g, '')
+    .replace(/["'«»]/g, '')
+    .replace(/\s+/g, ' ')
     .trim();
 }
 
@@ -136,10 +133,17 @@ function add(t, w) {
   $('chat').scrollTop = $('chat').scrollHeight;
 }
 
+// ================= ОЗВУЧКА =================
 async function speak(text) {
   if(!text || S.speaking) return;
+  
+  if (S.listening) {
+    await forceStopMic();
+  }
+
   S.speaking = true;
   $('orb').classList.add('active');
+  $('status').textContent = 'Говорит...';
   
   var clean = cleanText(text);
 
@@ -159,13 +163,18 @@ async function speak(text) {
   } catch(e) {
     console.error(e);
   } finally {
-    S.speaking = false;
-    $('orb').classList.remove('active');
+    // Если пользователь не прервал речь, возвращаем статус
+    if (S.speaking) {
+      S.speaking = false;
+      $('orb').classList.remove('active');
+      $('status').textContent = 'Готова';
+    }
   }
 }
 
 $('testBtn').onclick = () => speak("Проверка звука. Раз, два, три.");
 
+// ================= ОТПРАВКА =================
 function send() {
   var text = $('inp').value.trim();
   if(!text || S.speaking) return;
@@ -174,6 +183,7 @@ function send() {
   $('inp').value = '';
   add(text, 'u');
   $('orb').classList.add('thinking');
+  $('status').textContent = 'Думает...';
 
   fetch('https://api.groq.com/openai/v1/chat/completions', {
     method:'POST',
@@ -194,23 +204,41 @@ function send() {
   .catch(e => {
     $('orb').classList.remove('thinking');
     add('ОШИБКА СЕТИ: '+e.message, 'p');
+    $('status').textContent = 'Ошибка';
   });
 }
 
-// 🔥 ОБНОВЛЕННЫЙ МИКРОФОН БЕЗ ОКНА 🔥
+// ================= МИКРОФОН С ПРЕРЫВАНИЕМ =================
+async function forceStopMic() {
+  if (!nSTT) return;
+  try {
+    await nSTT.stop();
+  } catch(e) {}
+  S.listening = false;
+  $('mic').classList.remove('on');
+  $('status').textContent = 'Готова';
+  clearTimeout(window.micTimeout);
+}
+
 async function toggleMic() {
-  if(S.speaking) return;
+  // 🛑 ПРЕРЫВАНИЕ ОЗВУЧКИ
+  if(S.speaking) {
+    try {
+      if (nTTS) await nTTS.stop();
+      if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+    } catch(e) {}
+    S.speaking = false;
+    $('orb').classList.remove('active');
+    $('status').textContent = 'Готова';
+  }
   
   if (nSTT) {
-    try {
-      if (window.isListening) {
-        await nSTT.stop();
-        window.isListening = false;
-        $('mic').classList.remove('on');
-        $('status').textContent = 'Готова';
-        return;
-      }
+    if (S.listening) {
+      await forceStopMic();
+      return;
+    }
 
+    try {
       let perm = await nSTT.checkPermissions();
       if (perm.speechRecognition !== 'granted') {
         perm = await nSTT.requestPermissions();
@@ -220,7 +248,7 @@ async function toggleMic() {
         return;
       }
 
-      await nSTT.removeAllListeners();
+      try { await nSTT.removeAllListeners(); } catch(e) {}
 
       nSTT.addListener('partialResults', (data) => {
         if (data.matches && data.matches.length > 0) {
@@ -230,27 +258,30 @@ async function toggleMic() {
 
       nSTT.addListener('listeningState', (data) => {
         if (data.status === 'started') { 
-          window.isListening = true;
+          S.listening = true;
           $('mic').classList.add('on'); 
           $('status').textContent = 'Слушаю...';
           
-          // Автоматически выключаем через 10 секунд, если ничего не распознано
           window.micTimeout = setTimeout(async () => {
-            if(window.isListening) await nSTT.stop();
-          }, 10000);
+            await forceStopMic();
+          }, 8000);
 
         } else { 
-          window.isListening = false;
+          S.listening = false;
           clearTimeout(window.micTimeout);
           $('mic').classList.remove('on'); 
           $('status').textContent = 'Готова';
-          if($('inp').value.trim()) send(); 
+          
+          if($('inp').value.trim()) {
+             send(); 
+             $('inp').value = '';
+          }
         }
       });
 
       await nSTT.start({ 
         language: 'ru-RU', 
-        popup: false, // БЕЗ ОКНА GOOGLE
+        popup: false,
         partialResults: true,
         maxResults: 1 
       });
@@ -258,8 +289,8 @@ async function toggleMic() {
     } catch(e) { 
       console.error(e); 
       $('status').textContent = 'Ошибка микрофона';
+      S.listening = false;
       $('mic').classList.remove('on');
-      window.isListening = false;
     }
   } else {
     var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
