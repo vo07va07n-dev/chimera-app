@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Chimera Builder</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="background:#05070d; color:#fff; font-family:sans-serif; text-align:center; padding:50px 20px;">
+    <h1 style="color:#00e5ff;">Chimera Builder работает!</h1>
+    <p>Это приложение собрано через твой личный конструктор на GitHub.</p>
+    
+    <button onclick="speak()" style="padding:15px 30px; font-size:18px; background:#00e5ff; border:none; border-radius:10px; margin-top:30px; font-weight:bold;">
+        🔊 Проверить нативный голос
+    </button>
+
+    <script>
+        function speak() {
+            // Проверяем, работает ли нативный движок Capacitor (внутри APK)
+            if (window.Capacitor && window.Capacitor.Plugins.TextToSpeech) {
+                window.Capacitor.Plugins.TextToSpeech.speak({
+                    text: 'Ура! Я работаю на нативном движке Android без интернета и костылей!',
+                    lang: 'ru-RU',
+                    rate: 1.0,
+                    pitch: 1.0
+                });
+            } else {
+                alert('Вы открыли это в браузере. В APK будет работать нативный голос!');
+            }
+        }
+    </script>
+</body>
+</html>
