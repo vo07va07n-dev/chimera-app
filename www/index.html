@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -112,7 +111,7 @@ setTimeout(() => {
   }
 }, 1000);
 
-// 🔥 ФУНКЦИЯ ОЧИСТКИ ТЕКСТА 🔥
+// ФУНКЦИЯ ОЧИСТКИ ТЕКСТА
 function cleanText(text) {
   if (!text) return '';
   return text
@@ -198,26 +197,31 @@ function send() {
   });
 }
 
-// 🔥 ЖЕЛЕЗОБЕТОННЫЙ МИКРОФОН 🔥
+// 🔥 ОБНОВЛЕННЫЙ МИКРОФОН БЕЗ ОКНА 🔥
 async function toggleMic() {
   if(S.speaking) return;
   
   if (nSTT) {
     try {
-      // 1. Запрашиваем разрешение
+      if (window.isListening) {
+        await nSTT.stop();
+        window.isListening = false;
+        $('mic').classList.remove('on');
+        $('status').textContent = 'Готова';
+        return;
+      }
+
       let perm = await nSTT.checkPermissions();
       if (perm.speechRecognition !== 'granted') {
         perm = await nSTT.requestPermissions();
       }
       if (perm.speechRecognition !== 'granted') {
-        alert('⚠️ Микрофон заблокирован! Зайдите в настройки телефона -> Приложения -> Chimera -> Разрешения -> Микрофон (Разрешить).');
+        alert('⚠️ Микрофон заблокирован! Разрешите доступ в настройках телефона.');
         return;
       }
 
-      // 2. Очищаем старые слушатели, чтобы не было дублей
       await nSTT.removeAllListeners();
 
-      // 3. Вешаем слушатели
       nSTT.addListener('partialResults', (data) => {
         if (data.matches && data.matches.length > 0) {
           $('inp').value = data.matches[0];
@@ -226,33 +230,40 @@ async function toggleMic() {
 
       nSTT.addListener('listeningState', (data) => {
         if (data.status === 'started') { 
+          window.isListening = true;
           $('mic').classList.add('on'); 
           $('status').textContent = 'Слушаю...';
+          
+          // Автоматически выключаем через 10 секунд, если ничего не распознано
+          window.micTimeout = setTimeout(async () => {
+            if(window.isListening) await nSTT.stop();
+          }, 10000);
+
         } else { 
+          window.isListening = false;
+          clearTimeout(window.micTimeout);
           $('mic').classList.remove('on'); 
           $('status').textContent = 'Готова';
-          if($('inp').value) send(); // Отправляем, когда закончил говорить
+          if($('inp').value.trim()) send(); 
         }
       });
 
-      // 4. ВКЛЮЧАЕМ POPUP: TRUE! 
-      // Это вызовет стандартное окно Google, которое 100% имеет доступ к микрофону.
       await nSTT.start({ 
         language: 'ru-RU', 
-        popup: true, 
+        popup: false, // БЕЗ ОКНА GOOGLE
         partialResults: true,
         maxResults: 1 
       });
       
     } catch(e) { 
       console.error(e); 
-      alert('Ошибка нативного микрофона: ' + (e.message || JSON.stringify(e))); 
+      $('status').textContent = 'Ошибка микрофона';
       $('mic').classList.remove('on');
+      window.isListening = false;
     }
   } else {
-    // Fallback для браузера
     var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if(!SR) return alert('Микрофон недоступен');
+    if(!SR) return alert('Микрофон недоступен в этом браузере');
     if(!window.wRec) {
       window.wRec = new SR(); 
       window.wRec.lang = 'ru-RU';
