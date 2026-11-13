@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -54,7 +55,7 @@ input{flex:1;padding:10px;border-radius:20px;border:1px solid #00e5ff44;backgrou
 </header>
 
 <div class="orb-wrap"><div class="orb" id="orb"></div></div>
-<div id="chat"><div class="msg p">Привет! Я Chimera. Нажми 🔊 Тест для проверки звука, настрой ключ в ⚙️ и пиши мне!</div></div>
+<div id="chat"><div class="msg p">Привет! Я Chimera. Нажми на микрофон и говори.</div></div>
 
 <div class="row">
 <button class="cb on" id="c1">🎩 Дворецкий</button>
@@ -81,7 +82,7 @@ input{flex:1;padding:10px;border-radius:20px;border:1px solid #00e5ff44;backgrou
 </div>
 
 <script>
-// Инициализация Capacitor (нативный движок)
+// Инициализация Capacitor
 const isNative = window.Capacitor !== undefined;
 const nTTS = isNative ? window.Capacitor.Plugins.TextToSpeech : null;
 const nSTT = isNative ? window.Capacitor.Plugins.SpeechRecognition : null;
@@ -89,12 +90,15 @@ const nSTT = isNative ? window.Capacitor.Plugins.SpeechRecognition : null;
 var $ = id => document.getElementById(id);
 var S = { key: localStorage.p_key||'', char:'butler', speaking:false };
 
+// СТРОГИЕ ПРОМПТЫ (Запрещаем использовать символы)
+var strictRule = " ВАЖНО: Пиши только чистый текст. Строго запрещено использовать звездочки (*), решетки (#), кавычки, апострофы и другие символы форматирования.";
+
 var CHARS = {
-  butler: { pitch:1.0, rate:1.0, prompt:"Ты - Chimera, элегантный британский дворецкий. Обращайся 'сэр'. Кратко.", hello:"Я вас слушаю, сэр." },
-  teenager: { pitch:1.2, rate:1.15, prompt:"Ты - Chimera, саркастичный подросток. Отвечай коротко, со сленгом.", hello:"Чё надо? Только быстро." },
-  detective: { pitch:0.85, rate:0.95, prompt:"Ты - Chimera, мрачный детектив. Говори загадками.", hello:"Итак, у нас новое дело..." },
-  mercenary: { pitch:0.9, rate:1.05, prompt:"Ты - Chimera, наёмник из киберпанка. Говори дерзко.", hello:"Йо, бро. Какая задача?" },
-  depressed_ai: { pitch:0.7, rate:0.9, prompt:"Ты - Chimera, депрессивный суперкомпьютер. Отвечай цинично.", hello:"О, снова ты. Ну давай..." }
+  butler: { pitch:1.0, rate:1.0, prompt:"Ты - Chimera, элегантный британский дворецкий. Обращайся 'сэр'. Кратко." + strictRule, hello:"Я вас слушаю, сэр." },
+  teenager: { pitch:1.2, rate:1.15, prompt:"Ты - Chimera, саркастичный подросток. Отвечай коротко, со сленгом." + strictRule, hello:"Чё надо? Только быстро." },
+  detective: { pitch:0.85, rate:0.95, prompt:"Ты - Chimera, мрачный детектив. Говори загадками." + strictRule, hello:"Итак, у нас новое дело..." },
+  mercenary: { pitch:0.9, rate:1.05, prompt:"Ты - Chimera, наёмник из киберпанка. Говори дерзко." + strictRule, hello:"Йо, бро. Какая задача?" },
+  depressed_ai: { pitch:0.7, rate:0.9, prompt:"Ты - Chimera, депрессивный суперкомпьютер. Отвечай цинично." + strictRule, hello:"О, снова ты. Ну давай..." }
 };
 
 if(S.key) $('inpKey').value = S.key;
@@ -104,14 +108,24 @@ setTimeout(() => {
   if (!nTTS && !('speechSynthesis' in window)) {
     $('status').textContent = '❌ Нет поддержки TTS';
   } else {
-    $('status').textContent = nTTS ? 'Native TTS готов' : 'Web TTS готов';
+    $('status').textContent = nTTS ? 'Готова (Native)' : 'Готова (Web)';
   }
 }, 1000);
+
+// 🔥 ФУНКЦИЯ ОЧИСТКИ ТЕКСТА 🔥
+function cleanText(text) {
+  if (!text) return '';
+  return text
+    .replace(/[*_#`~]/g, '')      // Удаляем звездочки, решетки, подчеркивания
+    .replace(/["'«»]/g, '')       // Удаляем кавычки и апострофы
+    .replace(/\s+/g, ' ')         // Убираем двойные пробелы
+    .trim();
+}
 
 function add(t, w) {
   var d = document.createElement('div');
   d.className = 'msg ' + w;
-  d.textContent = t;
+  d.textContent = t; 
   if(w === 'p') {
     var b = document.createElement('button');
     b.className = 'speak-btn';
@@ -128,12 +142,14 @@ async function speak(text) {
   S.speaking = true;
   $('orb').classList.add('active');
   
+  var clean = cleanText(text);
+
   try {
     if (nTTS) {
-      await nTTS.speak({ text: text, lang: 'ru-RU', rate: CHARS[S.char].rate, pitch: CHARS[S.char].pitch });
+      await nTTS.speak({ text: clean, lang: 'ru-RU', rate: CHARS[S.char].rate, pitch: CHARS[S.char].pitch });
     } else if ('speechSynthesis' in window) {
       window.speechSynthesis.cancel();
-      var u = new SpeechSynthesisUtterance(text);
+      var u = new SpeechSynthesisUtterance(clean);
       u.lang = 'ru-RU'; u.rate = CHARS[S.char].rate; u.pitch = CHARS[S.char].pitch;
       var v = window.speechSynthesis.getVoices();
       var ru = v.find(x => x.lang.startsWith('ru'));
@@ -169,9 +185,12 @@ function send() {
   .then(data => {
     $('orb').classList.remove('thinking');
     if(data.error) { add('ОШИБКА: '+data.error.message, 'p'); return; }
-    var reply = data.choices[0].message.content;
-    add(reply, 'p');
-    speak(reply);
+    
+    var rawReply = data.choices[0].message.content;
+    var cleanReply = cleanText(rawReply);
+    
+    add(cleanReply, 'p');
+    speak(cleanReply);
   })
   .catch(e => {
     $('orb').classList.remove('thinking');
@@ -179,31 +198,66 @@ function send() {
   });
 }
 
+// 🔥 ЖЕЛЕЗОБЕТОННЫЙ МИКРОФОН 🔥
 async function toggleMic() {
   if(S.speaking) return;
   
   if (nSTT) {
     try {
+      // 1. Запрашиваем разрешение
       let perm = await nSTT.checkPermissions();
-      if (perm.speechRecognition !== 'granted') perm = await nSTT.requestPermissions();
-      if (perm.speechRecognition !== 'granted') return alert('Нет разрешения на микрофон');
-      
+      if (perm.speechRecognition !== 'granted') {
+        perm = await nSTT.requestPermissions();
+      }
+      if (perm.speechRecognition !== 'granted') {
+        alert('⚠️ Микрофон заблокирован! Зайдите в настройки телефона -> Приложения -> Chimera -> Разрешения -> Микрофон (Разрешить).');
+        return;
+      }
+
+      // 2. Очищаем старые слушатели, чтобы не было дублей
+      await nSTT.removeAllListeners();
+
+      // 3. Вешаем слушатели
       nSTT.addListener('partialResults', (data) => {
-        if (data.matches.length > 0) $('inp').value = data.matches[0];
+        if (data.matches && data.matches.length > 0) {
+          $('inp').value = data.matches[0];
+        }
       });
+
       nSTT.addListener('listeningState', (data) => {
-        if (data.status === 'started') { $('mic').classList.add('on'); }
-        else { $('mic').classList.remove('on'); if($('inp').value) send(); }
+        if (data.status === 'started') { 
+          $('mic').classList.add('on'); 
+          $('status').textContent = 'Слушаю...';
+        } else { 
+          $('mic').classList.remove('on'); 
+          $('status').textContent = 'Готова';
+          if($('inp').value) send(); // Отправляем, когда закончил говорить
+        }
       });
-      await nSTT.start({ language: 'ru-RU', popup: false });
-    } catch(e) { console.log(e); }
+
+      // 4. ВКЛЮЧАЕМ POPUP: TRUE! 
+      // Это вызовет стандартное окно Google, которое 100% имеет доступ к микрофону.
+      await nSTT.start({ 
+        language: 'ru-RU', 
+        popup: true, 
+        partialResults: true,
+        maxResults: 1 
+      });
+      
+    } catch(e) { 
+      console.error(e); 
+      alert('Ошибка нативного микрофона: ' + (e.message || JSON.stringify(e))); 
+      $('mic').classList.remove('on');
+    }
   } else {
+    // Fallback для браузера
     var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if(!SR) return alert('Микрофон недоступен');
     if(!window.wRec) {
-      window.wRec = new SR(); window.wRec.lang = 'ru-RU';
-      window.wRec.onstart = () => $('mic').classList.add('on');
-      window.wRec.onend = () => $('mic').classList.remove('on');
+      window.wRec = new SR(); 
+      window.wRec.lang = 'ru-RU';
+      window.wRec.onstart = () => { $('mic').classList.add('on'); $('status').textContent = 'Слушаю...'; };
+      window.wRec.onend = () => { $('mic').classList.remove('on'); $('status').textContent = 'Готова'; if($('inp').value) send(); };
       window.wRec.onresult = e => { $('inp').value = e.results[0][0].transcript; if(e.results[0].isFinal) send(); };
     }
     window.wRec.start();
