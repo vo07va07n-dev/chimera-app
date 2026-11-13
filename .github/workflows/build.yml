@@ -1,0 +1,56 @@
+name: Create APK
+on:
+  workflow_dispatch:
+    inputs:
+      appName:
+        description: 'Название приложения (Например: Chimera)'
+        required: true
+        default: 'MyApp'
+      appDescription:
+        description: 'Описание приложения'
+        required: false
+        default: 'Создано в моем конструкторе'
+      appId:
+        description: 'ID пакета (Например: com.myapp.test)'
+        required: true
+        default: 'com.myapp.app'
+      appVersion:
+        description: 'Версия (Например: 1.0.0)'
+        required: true
+        default: '1.0.0'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          
+      - name: Установка зависимостей
+        run: npm install
+        
+      - name: Настройка Capacitor (Название и ID)
+        run: |
+          node -e "let c=require('./capacitor.config.json'); c.appName='${{ github.event.inputs.appName }}'; c.appId='${{ github.event.inputs.appId }}'; require('fs').writeFileSync('./capacitor.config.json', JSON.stringify(c, null, 2));"
+          
+      - name: Генерация Android проекта
+        run: npx cap add android
+        
+      - name: Внедрение разрешений (TTS и Микрофон)
+        run: |
+          node -e "const fs=require('fs'); const p='android/app/src/main/AndroidManifest.xml'; let c=fs.readFileSync(p,'utf8'); if(!c.includes('RECORD_AUDIO')) { c=c.replace('<application', '<uses-permission android:name=\"android.permission.RECORD_AUDIO\" /> <uses-permission android:name=\"android.permission.INTERNET\" /> <queries><intent><action android:name=\"android.speech.RecognitionService\" /></intent><intent><action android:name=\"android.intent.action.TTS_SERVICE\" /></intent></queries> <application'); fs.writeFileSync(p,c); }"
+          
+      - name: Сборка APK
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug
+          
+      - name: Сохранение готового APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ github.event.inputs.appName }}-APK
+          path: android/app/build/outputs/apk/debug/app-debug.apk
