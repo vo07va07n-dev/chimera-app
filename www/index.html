@@ -1,31 +1,240 @@
 <!DOCTYPE html>
-<html>
+<html lang="ru">
 <head>
-<title>Chimera Builder</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no,viewport-fit=cover">
+<title>Chimera</title>
+<style>
+:root{--bg:#05070d;--cy:#00e5ff;--gd:#ffd166;--gr:#4ade80;--rd:#ff5470}
+*{margin:0;padding:0;box-sizing:border-box;font-family:-apple-system,sans-serif;-webkit-tap-highlight-color:transparent}
+body{background:var(--bg);color:#fff;height:100vh;display:flex;flex-direction:column;overflow:hidden;user-select:none}
+header{display:flex;justify-content:space-between;align-items:center;padding:12px;border-bottom:1px solid #00e5ff22}
+.logo{color:var(--cy);font-weight:300;letter-spacing:5px;font-size:18px}
+.status-text{font-size:10px;color:var(--cy);opacity:.8;margin-top:2px;text-transform:uppercase}
+.header-right{display:flex;gap:8px;align-items:center}
+.test-btn{background:#222;border:1px solid var(--cy);color:var(--cy);padding:6px 12px;border-radius:8px;font-size:11px;cursor:pointer}
+.gear{cursor:pointer;font-size:22px}
+.orb-wrap{height:18vh;display:flex;justify-content:center;align-items:center}
+.orb{width:90px;height:90px;border-radius:50%;background:radial-gradient(circle at 30% 30%,#9df9ff,var(--cy) 30%,#006a80 70%,#001824);box-shadow:0 0 50px #00e5ff66;transition:.3s;cursor:pointer}
+.orb.active{background:radial-gradient(circle at 30% 30%,#fff1a8,var(--gd) 30%,#806000 70%);box-shadow:0 0 70px #ffd16688;transform:scale(1.1)}
+.orb.thinking{animation:spin 1.5s linear infinite;border:3px dashed var(--cy);background:transparent;box-shadow:none}
+@keyframes spin{to{transform:rotate(360deg)}}
+#chat{flex:1;overflow-y:auto;padding:10px;display:flex;flex-direction:column;gap:6px}
+.msg{padding:9px 12px;border-radius:12px;max-width:85%;font-size:13px;line-height:1.4;word-wrap:break-word}
+.u{align-self:flex-end;background:#ffd16622;border:1px solid #ffd16655}
+.p{align-self:flex-start;background:#00e5ff11;border:1px solid #00e5ff44}
+.speak-btn{background:transparent;border:none;color:var(--cy);font-size:15px;cursor:pointer;margin-left:6px;vertical-align:middle}
+.row{display:flex;gap:3px;padding:0 6px 6px;overflow-x:auto}
+.cb{flex:1;padding:6px 2px;font-size:9px;background:#00e5ff11;border:1px solid #00e5ff33;color:#aaa;border-radius:6px;cursor:pointer;text-transform:uppercase;white-space:nowrap}
+.cb.on{background:#ffd16622;border-color:var(--gd);color:var(--gd)}
+.bot{display:flex;padding:6px;gap:5px;border-top:1px solid #00e5ff22;background:var(--bg)}
+input{flex:1;padding:10px;border-radius:20px;border:1px solid #00e5ff44;background:#00e5ff11;color:#fff;outline:none;font-size:13px}
+.btn{width:42px;height:42px;border-radius:50%;border:none;background:var(--cy);color:#000;font-size:15px;font-weight:bold;cursor:pointer;display:flex;justify-content:center;align-items:center}
+.mic{background:#00e5ff33;color:var(--cy);border:1px solid var(--cy);display:none}
+.mic.on{background:var(--cy);color:#000;animation:pulse 1s infinite}
+@keyframes pulse{50%{opacity:.5}}
+.modal{display:none;position:fixed;inset:0;background:#000d;padding:14px;flex-direction:column;justify-content:center;z-index:99}
+.mc{background:#0a1020;padding:16px;border-radius:12px;border:1px solid var(--cy)}
+.mc h3{margin-bottom:10px;color:var(--gd);font-size:14px}
+.mc label{font-size:11px;color:#aaa;margin-top:6px;display:block}
+.mc input{width:100%;margin:3px 0 10px;border-radius:7px;padding:7px}
+.mc button{width:100%;padding:10px;margin-top:6px;border-radius:7px;border:none;background:var(--cy);color:#000;font-weight:bold;font-size:12px}
+</style>
 </head>
-<body style="background:#05070d; color:#fff; font-family:sans-serif; text-align:center; padding:50px 20px;">
-    <h1 style="color:#00e5ff;">Chimera Builder работает!</h1>
-    <p>Это приложение собрано через твой личный конструктор на GitHub.</p>
-    
-    <button onclick="speak()" style="padding:15px 30px; font-size:18px; background:#00e5ff; border:none; border-radius:10px; margin-top:30px; font-weight:bold;">
-        🔊 Проверить нативный голос
-    </button>
+<body>
+<header>
+<div>
+<div class="logo">CHIMERA</div>
+<div class="status-text" id="status">Инициализация...</div>
+</div>
+<div class="header-right">
+<button class="test-btn" id="testBtn">🔊 Тест</button>
+<div class="gear" id="gear">⚙️</div>
+</div>
+</header>
 
-    <script>
-        function speak() {
-            // Проверяем, работает ли нативный движок Capacitor (внутри APK)
-            if (window.Capacitor && window.Capacitor.Plugins.TextToSpeech) {
-                window.Capacitor.Plugins.TextToSpeech.speak({
-                    text: 'Ура! Я работаю на нативном движке Android без интернета и костылей!',
-                    lang: 'ru-RU',
-                    rate: 1.0,
-                    pitch: 1.0
-                });
-            } else {
-                alert('Вы открыли это в браузере. В APK будет работать нативный голос!');
-            }
-        }
-    </script>
+<div class="orb-wrap"><div class="orb" id="orb"></div></div>
+<div id="chat"><div class="msg p">Привет! Я Chimera. Нажми 🔊 Тест для проверки звука, настрой ключ в ⚙️ и пиши мне!</div></div>
+
+<div class="row">
+<button class="cb on" id="c1">🎩 Дворецкий</button>
+<button class="cb" id="c2">😒 Подросток</button>
+<button class="cb" id="c3">🕵️‍♂️ Детектив</button>
+<button class="cb" id="c4">🦾 Наёмник</button>
+<button class="cb" id="c5">🤖 Депрессивный ИИ</button>
+</div>
+
+<div class="bot">
+<input type="text" id="inp" placeholder="Спроси что-нибудь...">
+<button class="btn mic" id="mic">🎤</button>
+<button class="btn" id="sendBtn">➤</button>
+</div>
+
+<div class="modal" id="modal">
+<div class="mc">
+<h3>⚙️ Настройки</h3>
+<label>API Ключ Groq</label>
+<input type="password" id="inpKey" placeholder="gsk_...">
+<button id="saveBtn">Сохранить</button>
+<button style="background:#333;color:#fff;margin-top:4px" id="closeBtn">Закрыть</button>
+</div>
+</div>
+
+<script>
+// Инициализация Capacitor (нативный движок)
+const isNative = window.Capacitor !== undefined;
+const nTTS = isNative ? window.Capacitor.Plugins.TextToSpeech : null;
+const nSTT = isNative ? window.Capacitor.Plugins.SpeechRecognition : null;
+
+var $ = id => document.getElementById(id);
+var S = { key: localStorage.p_key||'', char:'butler', speaking:false };
+
+var CHARS = {
+  butler: { pitch:1.0, rate:1.0, prompt:"Ты - Chimera, элегантный британский дворецкий. Обращайся 'сэр'. Кратко.", hello:"Я вас слушаю, сэр." },
+  teenager: { pitch:1.2, rate:1.15, prompt:"Ты - Chimera, саркастичный подросток. Отвечай коротко, со сленгом.", hello:"Чё надо? Только быстро." },
+  detective: { pitch:0.85, rate:0.95, prompt:"Ты - Chimera, мрачный детектив. Говори загадками.", hello:"Итак, у нас новое дело..." },
+  mercenary: { pitch:0.9, rate:1.05, prompt:"Ты - Chimera, наёмник из киберпанка. Говори дерзко.", hello:"Йо, бро. Какая задача?" },
+  depressed_ai: { pitch:0.7, rate:0.9, prompt:"Ты - Chimera, депрессивный суперкомпьютер. Отвечай цинично.", hello:"О, снова ты. Ну давай..." }
+};
+
+if(S.key) $('inpKey').value = S.key;
+if(nSTT || window.SpeechRecognition || window.webkitSpeechRecognition) $('mic').style.display='flex';
+
+setTimeout(() => {
+  if (!nTTS && !('speechSynthesis' in window)) {
+    $('status').textContent = '❌ Нет поддержки TTS';
+  } else {
+    $('status').textContent = nTTS ? 'Native TTS готов' : 'Web TTS готов';
+  }
+}, 1000);
+
+function add(t, w) {
+  var d = document.createElement('div');
+  d.className = 'msg ' + w;
+  d.textContent = t;
+  if(w === 'p') {
+    var b = document.createElement('button');
+    b.className = 'speak-btn';
+    b.textContent = '🔊';
+    b.onclick = () => speak(t);
+    d.appendChild(b);
+  }
+  $('chat').appendChild(d);
+  $('chat').scrollTop = $('chat').scrollHeight;
+}
+
+async function speak(text) {
+  if(!text || S.speaking) return;
+  S.speaking = true;
+  $('orb').classList.add('active');
+  
+  try {
+    if (nTTS) {
+      await nTTS.speak({ text: text, lang: 'ru-RU', rate: CHARS[S.char].rate, pitch: CHARS[S.char].pitch });
+    } else if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+      var u = new SpeechSynthesisUtterance(text);
+      u.lang = 'ru-RU'; u.rate = CHARS[S.char].rate; u.pitch = CHARS[S.char].pitch;
+      var v = window.speechSynthesis.getVoices();
+      var ru = v.find(x => x.lang.startsWith('ru'));
+      if(ru) u.voice = ru;
+      window.speechSynthesis.speak(u);
+      await new Promise(r => { u.onend = r; u.onerror = r; });
+    }
+  } catch(e) {
+    console.error(e);
+  } finally {
+    S.speaking = false;
+    $('orb').classList.remove('active');
+  }
+}
+
+$('testBtn').onclick = () => speak("Проверка звука. Раз, два, три.");
+
+function send() {
+  var text = $('inp').value.trim();
+  if(!text || S.speaking) return;
+  if(!S.key) { alert('Введи API-ключ в ⚙️'); return; }
+  
+  $('inp').value = '';
+  add(text, 'u');
+  $('orb').classList.add('thinking');
+
+  fetch('https://api.groq.com/openai/v1/chat/completions', {
+    method:'POST',
+    headers:{'Content-Type':'application/json','Authorization':'Bearer '+S.key},
+    body: JSON.stringify({model:'openai/gpt-oss-120b', messages: [{role:'system', content:CHARS[S.char].prompt}, {role:'user', content:text}]})
+  })
+  .then(r => r.json())
+  .then(data => {
+    $('orb').classList.remove('thinking');
+    if(data.error) { add('ОШИБКА: '+data.error.message, 'p'); return; }
+    var reply = data.choices[0].message.content;
+    add(reply, 'p');
+    speak(reply);
+  })
+  .catch(e => {
+    $('orb').classList.remove('thinking');
+    add('ОШИБКА СЕТИ: '+e.message, 'p');
+  });
+}
+
+async function toggleMic() {
+  if(S.speaking) return;
+  
+  if (nSTT) {
+    try {
+      let perm = await nSTT.checkPermissions();
+      if (perm.speechRecognition !== 'granted') perm = await nSTT.requestPermissions();
+      if (perm.speechRecognition !== 'granted') return alert('Нет разрешения на микрофон');
+      
+      nSTT.addListener('partialResults', (data) => {
+        if (data.matches.length > 0) $('inp').value = data.matches[0];
+      });
+      nSTT.addListener('listeningState', (data) => {
+        if (data.status === 'started') { $('mic').classList.add('on'); }
+        else { $('mic').classList.remove('on'); if($('inp').value) send(); }
+      });
+      await nSTT.start({ language: 'ru-RU', popup: false });
+    } catch(e) { console.log(e); }
+  } else {
+    var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if(!SR) return alert('Микрофон недоступен');
+    if(!window.wRec) {
+      window.wRec = new SR(); window.wRec.lang = 'ru-RU';
+      window.wRec.onstart = () => $('mic').classList.add('on');
+      window.wRec.onend = () => $('mic').classList.remove('on');
+      window.wRec.onresult = e => { $('inp').value = e.results[0][0].transcript; if(e.results[0].isFinal) send(); };
+    }
+    window.wRec.start();
+  }
+}
+
+$('sendBtn').onclick = send;
+$('mic').onclick = toggleMic;
+$('orb').onclick = toggleMic;
+$('gear').onclick = () => $('modal').style.display = 'flex';
+$('closeBtn').onclick = () => $('modal').style.display = 'none';
+$('saveBtn').onclick = () => {
+  S.key = $('inpKey').value.trim();
+  localStorage.p_key = S.key;
+  $('modal').style.display = 'none';
+  add('Настройки сохранены', 'p');
+};
+
+$('c1').onclick = () => setChar('butler', $('c1'));
+$('c2').onclick = () => setChar('teenager', $('c2'));
+$('c3').onclick = () => setChar('detective', $('c3'));
+$('c4').onclick = () => setChar('mercenary', $('c4'));
+$('c5').onclick = () => setChar('depressed_ai', $('c5'));
+
+function setChar(id, el) {
+  S.char = id;
+  var btns = document.querySelectorAll('.cb');
+  for(var i=0; i<btns.length; i++) btns[i].classList.remove('on');
+  el.classList.add('on');
+  speak(CHARS[id].hello);
+}
+</script>
 </body>
 </html>
