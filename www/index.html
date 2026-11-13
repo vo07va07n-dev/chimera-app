@@ -34,11 +34,12 @@ input{flex:1;padding:10px;border-radius:20px;border:1px solid #00e5ff44;backgrou
 .mic.on{background:var(--cy);color:#000;animation:pulse 1s infinite}
 @keyframes pulse{50%{opacity:.5}}
 .modal{display:none;position:fixed;inset:0;background:#000d;padding:14px;flex-direction:column;justify-content:center;z-index:99}
-.mc{background:#0a1020;padding:16px;border-radius:12px;border:1px solid var(--cy)}
+.mc{background:#0a1020;padding:16px;border-radius:12px;border:1px solid var(--cy);max-height:90vh;overflow-y:auto}
 .mc h3{margin-bottom:10px;color:var(--gd);font-size:14px}
 .mc label{font-size:11px;color:#aaa;margin-top:6px;display:block}
 .mc input{width:100%;margin:3px 0 10px;border-radius:7px;padding:7px}
 .mc button{width:100%;padding:10px;margin-top:6px;border-radius:7px;border:none;background:var(--cy);color:#000;font-weight:bold;font-size:12px}
+#log-box{background:#000;border:1px solid #333;padding:8px;border-radius:6px;font-family:monospace;font-size:10px;color:#0f0;margin-top:10px;white-space:pre-wrap;max-height:150px;overflow-y:auto;display:none}
 </style>
 </head>
 <body>
@@ -48,7 +49,7 @@ input{flex:1;padding:10px;border-radius:20px;border:1px solid #00e5ff44;backgrou
 <div class="status-text" id="status">Инициализация...</div>
 </div>
 <div class="header-right">
-<button class="test-btn" id="testBtn">🔊 Тест</button>
+<button class="test-btn" id="diagBtn">🔧 Тест</button>
 <div class="gear" id="gear">⚙️</div>
 </div>
 </header>
@@ -80,13 +81,25 @@ input{flex:1;padding:10px;border-radius:20px;border:1px solid #00e5ff44;backgrou
 </div>
 </div>
 
+<div class="modal" id="diagModal">
+<div class="mc">
+<h3>🔧 Диагностика системы</h3>
+<button id="testApiBtn" style="background:#4ade80;color:#000;">🌐 Тест API Groq</button>
+<button id="testTtsBtn" style="background:#ffd166;color:#000;">🗣 Тест Озвучки (TTS)</button>
+<button id="testSttBtn" style="background:#00e5ff;color:#000;">🎤 Тест Микрофона (STT)</button>
+<button id="forceResetBtn" style="background:#ff5470;color:#fff;margin-top:15px;">🚨 АВАРИЙНЫЙ СБРОС</button>
+<button style="background:#333;color:#fff;margin-top:4px;" id="closeDiagBtn">Закрыть</button>
+<div id="log-box"></div>
+</div>
+</div>
+
 <script>
 const isNative = window.Capacitor !== undefined;
 const nTTS = isNative ? window.Capacitor.Plugins.TextToSpeech : null;
 const nSTT = isNative ? window.Capacitor.Plugins.SpeechRecognition : null;
 
 var $ = id => document.getElementById(id);
-var S = { key: localStorage.p_key||'', char:'butler', speaking:false, listening:false };
+var S = { key: localStorage.p_key||'', char:'butler', speaking:false, listening:false, apiAbort: null };
 
 var strictRule = " ВАЖНО: Пиши только чистый текст. Строго запрещено использовать звездочки (*), решетки (#), кавычки, апострофы и другие символы форматирования.";
 
@@ -111,11 +124,7 @@ setTimeout(() => {
 
 function cleanText(text) {
   if (!text) return '';
-  return text
-    .replace(/[*_#`~]/g, '')
-    .replace(/["'«»]/g, '')
-    .replace(/\s+/g, ' ')
-    .trim();
+  return text.replace(/[*_#`~]/g, '').replace(/["'«»]/g, '').replace(/\s+/g, ' ').trim();
 }
 
 function add(t, w) {
@@ -133,37 +142,54 @@ function add(t, w) {
   $('chat').scrollTop = $('chat').scrollHeight;
 }
 
-// ================= ОЗВУЧКА =================
+function logDiag(msg, isError) {
+  var box = $('log-box');
+  box.style.display = 'block';
+  box.innerHTML += `<span style="color:${isError?'#ff5470':'#4ade80'}">> ${msg}</span>\n`;
+  box.scrollTop = box.scrollHeight;
+}
+
+async function forceSystemReset() {
+  logDiag("Запуск аварийного сброса...");
+  try {
+    if (nTTS) await nTTS.stop();
+    if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+  } catch(e) {}
+  try {
+    if (nSTT) await nSTT.stop();
+  } catch(e) {}
+  if (S.apiAbort) { S.apiAbort.abort(); S.apiAbort = null; }
+  S.speaking = false; S.listening = false;
+  clearTimeout(window.micTimeout);
+  $('orb').classList.remove('active', 'thinking');
+  $('mic').classList.remove('on');
+  $('status').textContent = 'Готова (Сброшено)';
+  logDiag("✅ Система полностью сброшена.");
+}
+
 async function speak(text) {
   if(!text || S.speaking) return;
-  
-  if (S.listening) {
-    await forceStopMic();
-  }
-
+  if (S.listening) await forceStopMic();
   S.speaking = true;
   $('orb').classList.add('active');
   $('status').textContent = 'Говорит...';
-  
   var clean = cleanText(text);
-
   try {
     if (nTTS) {
-      await nTTS.speak({ text: clean, lang: 'ru-RU', rate: CHARS[S.char].rate, pitch: CHARS[S.char].pitch });
+      await Promise.race([
+        nTTS.speak({ text: clean, lang: 'ru-RU', rate: CHARS[S.char].rate, pitch: CHARS[S.char].pitch }),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('TTS Timeout')), 15000))
+      ]);
     } else if ('speechSynthesis' in window) {
       window.speechSynthesis.cancel();
       var u = new SpeechSynthesisUtterance(clean);
       u.lang = 'ru-RU'; u.rate = CHARS[S.char].rate; u.pitch = CHARS[S.char].pitch;
-      var v = window.speechSynthesis.getVoices();
-      var ru = v.find(x => x.lang.startsWith('ru'));
-      if(ru) u.voice = ru;
       window.speechSynthesis.speak(u);
       await new Promise(r => { u.onend = r; u.onerror = r; });
     }
   } catch(e) {
-    console.error(e);
+    logDiag("Ошибка TTS: " + e.message, true);
   } finally {
-    // Если пользователь не прервал речь, возвращаем статус
     if (S.speaking) {
       S.speaking = false;
       $('orb').classList.remove('active');
@@ -172,48 +198,49 @@ async function speak(text) {
   }
 }
 
-$('testBtn').onclick = () => speak("Проверка звука. Раз, два, три.");
-
-// ================= ОТПРАВКА =================
 function send() {
   var text = $('inp').value.trim();
   if(!text || S.speaking) return;
   if(!S.key) { alert('Введи API-ключ в ⚙️'); return; }
-  
   $('inp').value = '';
   add(text, 'u');
   $('orb').classList.add('thinking');
   $('status').textContent = 'Думает...';
 
+  S.apiAbort = new AbortController();
+  var timeoutId = setTimeout(() => S.apiAbort.abort(), 15000);
+
   fetch('https://api.groq.com/openai/v1/chat/completions', {
     method:'POST',
+    signal: S.apiAbort.signal,
     headers:{'Content-Type':'application/json','Authorization':'Bearer '+S.key},
     body: JSON.stringify({model:'openai/gpt-oss-120b', messages: [{role:'system', content:CHARS[S.char].prompt}, {role:'user', content:text}]})
   })
   .then(r => r.json())
   .then(data => {
+    clearTimeout(timeoutId);
     $('orb').classList.remove('thinking');
     if(data.error) { add('ОШИБКА: '+data.error.message, 'p'); return; }
-    
-    var rawReply = data.choices[0].message.content;
-    var cleanReply = cleanText(rawReply);
-    
+    var cleanReply = cleanText(data.choices[0].message.content);
     add(cleanReply, 'p');
     speak(cleanReply);
   })
   .catch(e => {
+    clearTimeout(timeoutId);
     $('orb').classList.remove('thinking');
-    add('ОШИБКА СЕТИ: '+e.message, 'p');
-    $('status').textContent = 'Ошибка';
+    if (e.name === 'AbortError') {
+      add('ОШИБКА: Превышено время ожидания (15 сек).', 'p');
+      $('status').textContent = 'Ошибка сети';
+    } else {
+      add('ОШИБКА СЕТИ: '+e.message, 'p');
+      $('status').textContent = 'Ошибка';
+    }
   });
 }
 
-// ================= МИКРОФОН С ПРЕРЫВАНИЕМ =================
 async function forceStopMic() {
   if (!nSTT) return;
-  try {
-    await nSTT.stop();
-  } catch(e) {}
+  try { await nSTT.stop(); } catch(e) {}
   S.listening = false;
   $('mic').classList.remove('on');
   $('status').textContent = 'Готова';
@@ -221,7 +248,6 @@ async function forceStopMic() {
 }
 
 async function toggleMic() {
-  // 🛑 ПРЕРЫВАНИЕ ОЗВУЧКИ
   if(S.speaking) {
     try {
       if (nTTS) await nTTS.stop();
@@ -229,82 +255,79 @@ async function toggleMic() {
     } catch(e) {}
     S.speaking = false;
     $('orb').classList.remove('active');
-    $('status').textContent = 'Готова';
   }
   
   if (nSTT) {
-    if (S.listening) {
-      await forceStopMic();
-      return;
-    }
-
+    if (S.listening) { await forceStopMic(); return; }
     try {
       let perm = await nSTT.checkPermissions();
-      if (perm.speechRecognition !== 'granted') {
-        perm = await nSTT.requestPermissions();
-      }
-      if (perm.speechRecognition !== 'granted') {
-        alert('⚠️ Микрофон заблокирован! Разрешите доступ в настройках телефона.');
-        return;
-      }
-
+      if (perm.speechRecognition !== 'granted') perm = await nSTT.requestPermissions();
+      if (perm.speechRecognition !== 'granted') return;
       try { await nSTT.removeAllListeners(); } catch(e) {}
-
       nSTT.addListener('partialResults', (data) => {
-        if (data.matches && data.matches.length > 0) {
-          $('inp').value = data.matches[0];
-        }
+        if (data.matches && data.matches.length > 0) $('inp').value = data.matches[0];
       });
-
       nSTT.addListener('listeningState', (data) => {
         if (data.status === 'started') { 
           S.listening = true;
           $('mic').classList.add('on'); 
           $('status').textContent = 'Слушаю...';
-          
-          window.micTimeout = setTimeout(async () => {
-            await forceStopMic();
-          }, 8000);
-
+          window.micTimeout = setTimeout(async () => { await forceStopMic(); }, 8000);
         } else { 
           S.listening = false;
           clearTimeout(window.micTimeout);
           $('mic').classList.remove('on'); 
           $('status').textContent = 'Готова';
-          
-          if($('inp').value.trim()) {
-             send(); 
-             $('inp').value = '';
-          }
+          if($('inp').value.trim()) { send(); $('inp').value = ''; }
         }
       });
-
-      await nSTT.start({ 
-        language: 'ru-RU', 
-        popup: false,
-        partialResults: true,
-        maxResults: 1 
-      });
-      
+      await nSTT.start({ language: 'ru-RU', popup: false, partialResults: true, maxResults: 1 });
     } catch(e) { 
-      console.error(e); 
-      $('status').textContent = 'Ошибка микрофона';
       S.listening = false;
       $('mic').classList.remove('on');
+      logDiag("Ошибка STT: " + e.message, true);
     }
-  } else {
-    var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if(!SR) return alert('Микрофон недоступен в этом браузере');
-    if(!window.wRec) {
-      window.wRec = new SR(); 
-      window.wRec.lang = 'ru-RU';
-      window.wRec.onstart = () => { $('mic').classList.add('on'); $('status').textContent = 'Слушаю...'; };
-      window.wRec.onend = () => { $('mic').classList.remove('on'); $('status').textContent = 'Готова'; if($('inp').value) send(); };
-      window.wRec.onresult = e => { $('inp').value = e.results[0][0].transcript; if(e.results[0].isFinal) send(); };
-    }
-    window.wRec.start();
   }
 }
+
+$('diagBtn').onclick = () => { $('log-box').innerHTML = ''; $('diagModal').style.display = 'flex'; };
+$('closeDiagBtn').onclick = () => $('diagModal').style.display = 'none';
+$('forceResetBtn').onclick = forceSystemReset;
+
+$('testApiBtn').onclick = async () => {
+  logDiag("Тест API Groq...");
+  if(!S.key) return logDiag("Ошибка: Нет ключа!", true);
+  try {
+    var start = Date.now();
+    var res = await fetch('https://api.groq.com/openai/v1/models', { headers: {'Authorization': 'Bearer '+S.key} });
+    if(res.ok) logDiag(`✅ API работает. Задержка: ${Date.now() - start} мс.`);
+    else logDiag(`❌ API ошибка: Статус ${res.status}`, true);
+  } catch(e) { logDiag("❌ API Ошибка сети: " + e.message, true); }
+};
+
+$('testTtsBtn').onclick = async () => {
+  logDiag("Тест нативного TTS...");
+  if (!nTTS) return logDiag("❌ Нативный TTS недоступен", true);
+  try {
+    var start = Date.now();
+    await nTTS.speak({ text: "Проверка связи.", lang: 'ru-RU' });
+    logDiag(`✅ TTS отработал за ${Date.now() - start} мс.`);
+  } catch(e) { logDiag("❌ Ошибка TTS: " + e.message, true); }
+};
+
+$('testSttBtn').onclick = async () => {
+  logDiag("Тест нативного STT...");
+  if (!nSTT) return logDiag("❌ Нативный STT недоступен", true);
+  try {
+    await nSTT.removeAllListeners();
+    nSTT.addListener('listeningState', (d) => {
+      if(d.status === 'started') logDiag("🎤 Микрофон ВКЛ (Слушаю 3 сек)...");
+      else logDiag("✅ Микрофон ВЫКЛ (Успешно).");
+    });
+    await nSTT.start({ language: 'ru-RU', popup: false, partialResults: true });
+    setTimeout(async () => { await nSTT.stop(); }, 3000);
+  } catch(e) { logDiag("❌ Ошибка STT: " + e.message, true); }
+};
 
 $('sendBtn').onclick = send;
 $('mic').onclick = toggleMic;
