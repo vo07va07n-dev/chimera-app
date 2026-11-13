@@ -1,5 +1,75 @@
 
-<!DOCTYPE html>
+<!DOCTYPE html>name: Create APK
+on:
+  workflow_dispatch:
+    inputs:
+      appName:
+        description: 'Название приложения'
+        required: true
+        default: 'Chimera'
+      appDescription:
+        description: 'Описание'
+        required: false
+        default: 'Создано в моем конструкторе'
+      appId:
+        description: 'ID пакета'
+        required: true
+        default: 'com.chimera.app'
+      appVersion:
+        description: 'Версия'
+        required: true
+        default: '1.0.0'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+          
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          
+      - name: Установка зависимостей
+        run: npm install
+        
+      - name: Настройка Capacitor
+        run: |
+          node -e "let c=require('./capacitor.config.json'); c.appName='${{ github.event.inputs.appName }}'; c.appId='${{ github.event.inputs.appId }}'; require('fs').writeFileSync('./capacitor.config.json', JSON.stringify(c, null, 2));"
+          
+      - name: Генерация Android проекта
+        run: npx cap add android
+
+      - name: Применение кастомной иконки из корня
+        run: |
+          mkdir -p resources
+          if [ -f icon.png ]; then mv icon.png resources/icon.png; fi
+          npx @capacitor/assets generate --android
+
+      - name: Внедрение разрешений (TTS и Микрофон)
+        run: |
+          node -e "const fs=require('fs'); const p='android/app/src/main/AndroidManifest.xml'; let c=fs.readFileSync(p,'utf8'); if(!c.includes('RECORD_AUDIO')) { c=c.replace('<application', '<uses-permission android:name=\"android.permission.RECORD_AUDIO\" /> <uses-permission android:name=\"android.permission.INTERNET\" /> <queries><intent><action android:name=\"android.speech.RecognitionService\" /></intent><intent><action android:name=\"android.intent.action.TTS_SERVICE\" /></intent></queries> <application'); fs.writeFileSync(p,c); }"
+          
+      - name: Синхронизация
+        run: npx cap sync android
+
+      - name: Сборка APK
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug
+          
+      - name: Сохранение готового APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ github.event.inputs.appName }}-APK
+          path: android/app/build/outputs/apk/debug/app-debug.apk
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
