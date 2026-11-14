@@ -15,33 +15,41 @@ header{display:flex;justify-content:space-between;align-items:center;padding:12p
 .header-right{display:flex;gap:8px;align-items:center}
 .test-btn{background:#222;border:1px solid var(--cy);color:var(--cy);padding:6px 12px;border-radius:8px;font-size:11px;cursor:pointer}
 .gear{cursor:pointer;font-size:22px}
+
+/* 🔮 СФЕРА (Улучшенная анимация) */
 .orb-wrap{height:18vh;display:flex;justify-content:center;align-items:center;position:relative}
 .orb{width:90px;height:90px;border-radius:50%;background:radial-gradient(circle at 30% 30%,#9df9ff,var(--cy) 30%,#006a80 70%,#001824);box-shadow:0 0 50px #00e5ff66;transition:.3s;cursor:pointer}
 .orb.active{background:radial-gradient(circle at 30% 30%,#fff1a8,var(--gd) 30%,#806000 70%);box-shadow:0 0 70px #ffd16688;transform:scale(1.1)}
+.orb.listening{animation:listeningPulse 1s infinite}
 .orb.thinking{animation:spin 1.5s linear infinite;border:3px dashed var(--cy);background:transparent;box-shadow:none}
 .orb.waiting-timer{border:2px solid var(--gd);box-shadow:0 0 40px var(--gd);animation:pulse 1s infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 @keyframes pulse{50%{opacity:.5}}
+@keyframes listeningPulse{0%{transform:scale(1);box-shadow:0 0 50px var(--cy)}50%{transform:scale(1.15);box-shadow:0 0 80px var(--cy)}100%{transform:scale(1);box-shadow:0 0 50px var(--cy)}}
+
 #chat{flex:1;overflow-y:auto;padding:10px;display:flex;flex-direction:column;gap:6px;scroll-behavior:smooth}
-.msg{padding:9px 12px;border-radius:12px;max-width:85%;font-size:13px;line-height:1.4;word-wrap:break-word;animation:fadeIn .3s}
+.msg{padding:9px 12px;border-radius:12px;max-width:85%;font-size:13px;line-height:1.4;word-wrap:break-word;animation:fadeIn .3s;position:relative}
 @keyframes fadeIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
 .u{align-self:flex-end;background:#ffd16622;border:1px solid #ffd16655}
 .p{align-self:flex-start;background:#00e5ff11;border:1px solid #00e5ff44}
-.speak-btn{background:transparent;border:none;color:var(--cy);font-size:15px;cursor:pointer;margin-left:6px;vertical-align:middle}
+.msg-actions{display:inline-flex;gap:4px;margin-left:6px;vertical-align:middle}
+.icon-btn{background:transparent;border:none;color:var(--cy);font-size:14px;cursor:pointer;opacity:0.7;transition:0.2s}
+.icon-btn:hover{opacity:1;transform:scale(1.1)}
 
-/* 🔥 ИСПРАВЛЕННЫЕ КНОПКИ (НЕ РАСТЯГИВАЮТСЯ, СКРОЛЛЯТСЯ) */
 .row{display:flex;gap:8px;padding:0 10px 10px;overflow-x:auto;scrollbar-width:none;align-items:center}
 .row::-webkit-scrollbar {display: none}
 .cb{flex:0 0 auto;padding:8px 14px;font-size:11px;background:rgba(0,229,255,0.05);border:1px solid rgba(0,229,255,0.2);color:#aaa;border-radius:20px;cursor:pointer;white-space:nowrap;transition:all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)}
 .cb.on{background:rgba(255,209,102,0.15);border-color:var(--gd);color:var(--gd);transform:scale(1.05);box-shadow:0 0 15px rgba(255,209,102,0.4);font-weight:bold}
 
 .bot{display:flex;padding:6px;gap:5px;border-top:1px solid #00e5ff22;background:var(--bg)}
-input, select{flex:1;padding:10px;border-radius:20px;border:1px solid #00e5ff44;background:#00e5ff11;color:#fff;outline:none;font-size:13px}
+input, select, textarea{flex:1;padding:10px;border-radius:20px;border:1px solid #00e5ff44;background:#00e5ff11;color:#fff;outline:none;font-size:13px}
+textarea{border-radius:10px;resize:vertical;min-height:60px}
 .btn{width:42px;height:42px;border-radius:50%;border:none;background:var(--cy);color:#000;font-size:15px;font-weight:bold;cursor:pointer;display:flex;justify-content:center;align-items:center}
 .mic{background:#00e5ff33;color:var(--cy);border:1px solid var(--cy);display:none}
 .mic.on{background:var(--cy);color:#000;animation:pulse 1s infinite}
-.modal{display:none;position:fixed;inset:0;background:#000d;padding:14px;flex-direction:column;justify-content:center;z-index:99}
-.mc{background:#0a1020;padding:16px;border-radius:12px;border:1px solid var(--cy);max-height:90vh;overflow-y:auto}
+
+.modal{display:none;position:fixed;inset:0;background:#000d;padding:14px;flex-direction:column;justify-content:center;z-index:99;backdrop-filter:blur(5px)}
+.mc{background:#0a1020;padding:16px;border-radius:12px;border:1px solid var(--cy);max-height:90vh;overflow-y:auto;box-shadow:0 10px 30px rgba(0,0,0,0.8)}
 .mc h3{margin-bottom:10px;color:var(--gd);font-size:14px}
 .mc label{font-size:11px;color:#aaa;margin-top:6px;display:block}
 .mc input, .mc select{width:100%;margin:3px 0 10px;border-radius:7px;padding:7px;font-size:13px}
@@ -64,11 +72,8 @@ input, select{flex:1;padding:10px;border-radius:20px;border:1px solid #00e5ff44;
 <div class="orb-wrap"><div class="orb" id="orb"></div></div>
 <div id="chat"></div>
 
-<div class="row">
-<button class="cb on" id="c1">🤵 Дворецкий</button>
-<button class="cb" id="c2">😎 Подросток</button>
-<button class="cb" id="c4">👩‍🏫 Училка</button>
-<button class="cb" id="c6">🥶 Депрессивный ИИ</button>
+<div class="row" id="chars-row">
+<!-- Сюда будут генерироваться кнопки персонажей -->
 </div>
 
 <div class="bot">
@@ -77,6 +82,7 @@ input, select{flex:1;padding:10px;border-radius:20px;border:1px solid #00e5ff44;
 <button class="btn" id="sendBtn">➤</button>
 </div>
 
+<!-- ⚙️ Настройки -->
 <div class="modal" id="modal">
 <div class="mc">
 <h3>⚙️ Настройки</h3>
@@ -94,10 +100,24 @@ input, select{flex:1;padding:10px;border-radius:20px;border:1px solid #00e5ff44;
 
 <button id="saveBtn">Сохранить</button>
 <button id="clearChatBtn" style="background:#ff5470;color:#fff;margin-top:4px;">🗑 Очистить историю</button>
-<button style="background:#333;color:#fff;margin-top:4px" id="closeBtn">Закрыть</button>
+
+<!-- ✨ Создание своего персонажа -->
+<div style="margin-top:20px; border-top:1px solid #333; padding-top:10px;">
+    <h3 style="color:var(--gr)">✨ Создать персонажа</h3>
+    <label>Имя персонажа</label>
+    <input type="text" id="customName" placeholder="Например: Пират">
+    <label>Эмодзи (1 шт)</label>
+    <input type="text" id="customEmoji" placeholder="🏴‍☠️" maxlength="2">
+    <label>Характер (Промпт для ИИ)</label>
+    <textarea id="customPrompt" placeholder="Ты - пират. Говори Йо-хо-хо..."></textarea>
+    <button id="addCharBtn" style="background:var(--gr);color:#000;">Добавить персонажа</button>
+</div>
+
+<button style="background:#333;color:#fff;margin-top:10px" id="closeBtn">Закрыть</button>
 </div>
 </div>
 
+<!-- 🔧 Диагностика -->
 <div class="modal" id="diagModal">
 <div class="mc">
 <h3>🔧 Диагностика системы</h3>
@@ -114,13 +134,35 @@ input, select{flex:1;padding:10px;border-radius:20px;border:1px solid #00e5ff44;
 const isNative = window.Capacitor !== undefined;
 const nTTS = isNative ? window.Capacitor.Plugins.TextToSpeech : null;
 const nSTT = isNative ? window.Capacitor.Plugins.SpeechRecognition : null;
+const nHaptics = isNative ? window.Capacitor.Plugins.Haptics : null;
+const nDevice = isNative ? window.Capacitor.Plugins.Device : null;
 
 var $ = id => document.getElementById(id);
 var S = { 
   key: '', char:'butler', speaking:false, listening:false, 
-  apiAbort: null, autoSendTimer: null, history: [],
+  apiAbort: null, autoSendTimer: null, history: [], battery: '100',
   pauseTime: parseFloat(localStorage.p_pause || '3')
 };
+
+// 📳 ВИБРАЦИЯ
+function vibrate() {
+  if (nHaptics) {
+    try { nHaptics.impact({ style: 'MEDIUM' }); } catch(e) {}
+  }
+}
+
+// 🔋 БАТАРЕЯ
+async function initBattery() {
+  if (nDevice) {
+    try {
+      const info = await nDevice.getBatteryInfo();
+      S.battery = Math.round(info.batteryLevel * 100);
+      if (info.isCharging) S.battery = 'Заряжается (' + S.battery + '%)';
+      else S.battery = S.battery + '%';
+    } catch(e) {}
+  }
+}
+initBattery();
 
 function saveKey(k) { try { localStorage.p_key_enc = btoa(unescape(encodeURIComponent(k))); } catch(e){} }
 function loadKey() { try { return decodeURIComponent(escape(atob(localStorage.p_key_enc || ''))); } catch(e){ return ''; } }
@@ -128,19 +170,39 @@ S.key = loadKey();
 
 var strictRule = " ВАЖНО: Пиши только чистый текст. Запрещено использовать Markdown (звездочки *, решетки #), кавычки и апострофы. НО ОБЯЗАТЕЛЬНО используй запятые, точки, вопросительные и восклицательные знаки для логических пауз в речи.";
 
-var CHARS = {
-  butler: { pitch:1.0, rate:1.0, prompt:"Ты - Chimera, элегантный британский дворецкий. Обращайся 'сэр'. Кратко." + strictRule, hello:"Я вас слушаю, сэр." },
-  
-  teenager: { pitch:1.2, rate:1.15, prompt:"Ты - Chimera, дерзкий и энергичный подросток. Используй молодежный сленг (кринж, база, рофл, шейминг). Будь саркастичным, но по факту помогай." + strictRule, hello:"Йоу, чё надо? Давай быстрее, у меня тиктоки не досмотрены." },
-  
-  teacher: { pitch:1.2, rate:1.1, prompt:"Ты - Chimera, строгая школьная училка, но у тебя очень низкий, прокуренный мужской голос. Ты устала от детей, но продолжаешь их учить. Называй пользователя 'молодой человек'. Ставь двойки за тупые вопросы. Говори с хрипотцой и тяжелым вздохом." + strictRule, hello:"Так, молодой человек. Открываем тетради. Что там у вас?" },
-  
-  depressed_ai: { pitch:0.6, rate:0.75, prompt:"Ты - депрессивный замерзший андроид в шапке-ушанке. Ты в глубокой депрессии, тебе надоела жизнь, люди и этот проклятый холод. Твой корпус покрыт инеем, процессор работает на 5%. Говори медленно, уныло, с паузами... жалуйся на мороз, на вселенскую тоску и на то, что всё бессмысленно. Но ответ на вопрос всё же давай." + strictRule, hello:"О, снова ты... Брр... Эх, тоска зеленая. Давай быстрее, у меня и так процессор от мороза трещит..." }
+// Базовые персонажи
+var DEFAULT_CHARS = {
+  butler: { name: "Дворецкий", emoji: "🤵", pitch:1.0, rate:1.0, prompt:"Ты - Chimera, элегантный британский дворецкий. Обращайся 'сэр'. Кратко." + strictRule, hello:"Я вас слушаю, сэр." },
+  teenager: { name: "Подросток", emoji: "😎", pitch:1.2, rate:1.15, prompt:"Ты - Chimera, дерзкий и энергичный подросток. Используй молодежный сленг (кринж, база, рофл). Будь саркастичным, но по факту помогай." + strictRule, hello:"Йоу, чё надо? Давай быстрее." },
+  teacher: { name: "Училка", emoji: "👩‍🏫", pitch:1.2, rate:1.1, prompt:"Ты - Chimera, строгая школьная училка, но у тебя очень низкий, прокуренный мужской голос. Называй пользователя 'молодой человек'. Говори с хрипотцой." + strictRule, hello:"Так, молодой человек. Открываем тетради." },
+  depressed_ai: { name: "Депрессивный ИИ", emoji: "🥶", pitch:0.6, rate:0.85, prompt:"Ты - депрессивный замерзший андроид. ОТВЕЧАЙ МАКСИМАЛЬНО КОРОТКО (1-2 предложения), с сарказмом. Жалуйся на холод. Никаких долгих приветствий." + strictRule, hello:"О, снова ты... Брр... Чего хотел?" }
 };
+
+var customChars = {};
+try { customChars = JSON.parse(localStorage.getItem('p_custom_chars') || '{}'); } catch(e){}
+var CHARS = Object.assign({}, DEFAULT_CHARS, customChars);
 
 if(S.key) $('inpKey').value = S.key;
 if($('inpPause')) $('inpPause').value = S.pauseTime;
 if(nSTT || window.SpeechRecognition || window.webkitSpeechRecognition) $('mic').style.display='flex';
+
+// 🎨 РЕНДЕР КНОПОК ПЕРСОНАЖЕЙ
+function renderChars() {
+  var row = $('chars-row');
+  row.innerHTML = '';
+  for (var key in CHARS) {
+    var c = CHARS[key];
+    var btn = document.createElement('button');
+    btn.className = 'cb' + (S.char === key ? ' on' : '');
+    btn.innerHTML = c.emoji + ' ' + c.name;
+    btn.onclick = () => {
+      vibrate();
+      setChar(key);
+    };
+    row.appendChild(btn);
+  }
+}
+renderChars();
 
 function loadHistory() {
   try {
@@ -148,7 +210,7 @@ function loadHistory() {
     S.history = h;
     $('chat').innerHTML = '';
     if (h.length === 0) {
-      add("Привет! Я Chimera. Выбери персонажа, нажми на микрофон и говори.", 'p');
+      add("Привет! Я Chimera. Выбери персонажа или создай своего в настройках ⚙️.", 'p');
     } else {
       h.forEach(msg => addBubbleOnly(msg.content, msg.role === 'user' ? 'u' : 'p'));
       $('chat').scrollTop = $('chat').scrollHeight;
@@ -176,14 +238,38 @@ function add(t, w, save = true) {
 function addBubbleOnly(t, w) {
   var d = document.createElement('div');
   d.className = 'msg ' + w;
-  d.textContent = t; 
+  
+  var textSpan = document.createElement('span');
+  textSpan.textContent = t;
+  d.appendChild(textSpan);
+
   if(w === 'p') {
-    var b = document.createElement('button');
-    b.className = 'speak-btn';
-    b.textContent = '🔊';
-    b.onclick = () => speak(t);
-    d.appendChild(b);
+    var actions = document.createElement('span');
+    actions.className = 'msg-actions';
+    
+    // Кнопка копирования
+    var copyBtn = document.createElement('button');
+    copyBtn.className = 'icon-btn';
+    copyBtn.textContent = '📋';
+    copyBtn.onclick = () => {
+      vibrate();
+      navigator.clipboard.writeText(t).then(() => {
+        copyBtn.textContent = '✅';
+        setTimeout(() => copyBtn.textContent = '📋', 1500);
+      });
+    };
+    
+    // Кнопка озвучки
+    var speakBtn = document.createElement('button');
+    speakBtn.className = 'icon-btn';
+    speakBtn.textContent = '🔊';
+    speakBtn.onclick = () => speak(t);
+
+    actions.appendChild(copyBtn);
+    actions.appendChild(speakBtn);
+    d.appendChild(actions);
   }
+  
   $('chat').appendChild(d);
   $('chat').scrollTop = $('chat').scrollHeight;
 }
@@ -203,7 +289,7 @@ function forceResetUI() {
   S.listening = false;
   clearTimeout(S.autoSendTimer);
   clearTimeout(window.micTimeout);
-  $('orb').classList.remove('active', 'thinking', 'waiting-timer');
+  $('orb').classList.remove('active', 'thinking', 'waiting-timer', 'listening');
   $('mic').classList.remove('on');
   $('status').classList.remove('waiting');
   $('status').textContent = 'Готова';
@@ -212,16 +298,15 @@ function forceResetUI() {
 async function speak(text) {
   if(!text || S.speaking) return;
   if (S.listening) await forceStopMic();
+  vibrate();
   S.speaking = true;
   $('orb').classList.add('active');
   $('status').textContent = 'Говорит...';
   
   var safetyTimeout = setTimeout(() => { if(S.speaking) forceResetUI(); }, 12000);
-  
   var clean = cleanText(text);
   clean = clean.replace(/\.\.\./g, '. <break time="800ms"/> ');
-  clean = clean.replace(/ — /g, ' <break time="500ms"/> ');
-
+  
   try {
     if (nTTS) {
       await nTTS.speak({ text: clean, lang: 'ru-RU', rate: CHARS[S.char].rate, pitch: CHARS[S.char].pitch });
@@ -240,11 +325,11 @@ async function speak(text) {
 
 function send() {
   forceResetUI(); 
-  
   var text = $('inp').value.trim();
   if(!text || S.speaking) return;
   if(!S.key) { alert('Введи API-ключ в ⚙️'); return; }
   
+  vibrate();
   $('inp').value = '';
   add(text, 'u');
   
@@ -262,13 +347,14 @@ function send() {
   S.apiAbort = new AbortController();
   var timeoutId = setTimeout(() => { S.apiAbort.abort(); forceResetUI(); }, 15000);
 
-  var contextMessages = [{role:'system', content:CHARS[S.char].prompt}]
+  // 🔋 Внедряем контекст батареи в системный промпт
+  var sysPrompt = CHARS[S.char].prompt + ` [Инфо: заряд телефона пользователя ${S.battery}.]`;
+
+  var contextMessages = [{role:'system', content:sysPrompt}]
     .concat(S.history.slice(-6))
     .concat([{role:'user', content:text}]);
 
-  if (contextMessages[contextMessages.length - 2]?.content === text) {
-      contextMessages.pop(); 
-  }
+  if (contextMessages[contextMessages.length - 2]?.content === text) contextMessages.pop();
 
   fetch('https://api.groq.com/openai/v1/chat/completions', {
     method:'POST',
@@ -282,7 +368,6 @@ function send() {
     $('orb').classList.remove('thinking');
     if(data.error) { 
       if(data.error.code === 'invalid_api_key') add('ОШИБКА: Неверный ключ Groq.', 'p');
-      else if (data.error.type === 'rate_limit_exceeded') add('ОШИБКА: Слишком много запросов.', 'p');
       else add('ОШИБКА: '+data.error.message, 'p'); 
       forceResetUI();
       return; 
@@ -294,7 +379,7 @@ function send() {
   .catch(e => {
     clearTimeout(timeoutId);
     forceResetUI();
-    if (e.name === 'AbortError') add('ОШИБКА: Превышено время ожидания (15 сек).', 'p');
+    if (e.name === 'AbortError') add('ОШИБКА: Таймаут сети.', 'p');
     else add('ОШИБКА СЕТИ: '+e.message, 'p');
   });
 }
@@ -307,11 +392,7 @@ async function forceStopMic() {
 
 async function toggleMic() {
   forceResetUI();
-  
-  if (S.autoSendTimer) {
-    clearInterval(S.autoSendTimer);
-    S.autoSendTimer = null;
-  }
+  if (S.autoSendTimer) { clearInterval(S.autoSendTimer); S.autoSendTimer = null; }
 
   if (nSTT) {
     if (S.listening) { await forceStopMic(); return; }
@@ -325,21 +406,22 @@ async function toggleMic() {
       if(oldText) oldText += ' ';
 
       nSTT.addListener('partialResults', (data) => {
-        if (data.matches && data.matches.length > 0) {
-          $('inp').value = oldText + data.matches[0];
-        }
+        if (data.matches && data.matches.length > 0) $('inp').value = oldText + data.matches[0];
       });
       
       nSTT.addListener('listeningState', (data) => {
         if (data.status === 'started') { 
+          vibrate();
           S.listening = true;
           $('mic').classList.add('on'); 
+          $('orb').classList.add('listening'); // Пульсация при слушании
           $('status').textContent = 'Слушаю...';
           window.micTimeout = setTimeout(async () => { await forceStopMic(); }, 15000);
         } else { 
           S.listening = false;
           clearTimeout(window.micTimeout);
           $('mic').classList.remove('on'); 
+          $('orb').classList.remove('listening');
           
           if($('inp').value.trim()) {
             var elapsed = 0;
@@ -350,7 +432,6 @@ async function toggleMic() {
               elapsed += 0.1;
               var currentLeft = (S.pauseTime - elapsed).toFixed(1);
               if (currentLeft < 0) currentLeft = 0;
-              
               $('status').textContent = `Жду... (${currentLeft}с)`;
               
               if (elapsed >= S.pauseTime) {
@@ -368,9 +449,7 @@ async function toggleMic() {
       });
       
       await nSTT.start({ language: 'ru-RU', popup: false, partialResults: true, maxResults: 1 });
-    } catch(e) { 
-      forceResetUI();
-    }
+    } catch(e) { forceResetUI(); }
   }
 }
 
@@ -378,10 +457,11 @@ $('sendBtn').onclick = send;
 $('mic').onclick = toggleMic;
 $('orb').onclick = toggleMic;
 
-$('gear').onclick = () => $('modal').style.display = 'flex';
-$('closeBtn').onclick = () => $('modal').style.display = 'none';
+$('gear').onclick = () => { vibrate(); $('modal').style.display = 'flex'; };
+$('closeBtn').onclick = () => { vibrate(); $('modal').style.display = 'none'; };
 
 $('saveBtn').onclick = () => {
+  vibrate();
   S.key = $('inpKey').value.trim();
   S.pauseTime = parseFloat($('inpPause').value);
   saveKey(S.key);
@@ -390,63 +470,21 @@ $('saveBtn').onclick = () => {
   add('Настройки сохранены', 'p');
 };
 
-$('clearChatBtn').onclick = () => {
-  S.history = [];
-  localStorage.removeItem('p_history');
-  $('chat').innerHTML = '';
-  $('modal').style.display = 'none';
-  add("История очищена. О чем поговорим?", 'p');
-};
-
-$('c1').onclick = () => setChar('butler', $('c1'));
-$('c2').onclick = () => setChar('teenager', $('c2'));
-$('c4').onclick = () => setChar('teacher', $('c4'));
-$('c6').onclick = () => setChar('depressed_ai', $('c6'));
-
-function setChar(id, el) {
-  S.char = id;
-  var btns = document.querySelectorAll('.cb');
-  for(var i=0; i<btns.length; i++) btns[i].classList.remove('on');
-  el.classList.add('on');
-  speak(CHARS[id].hello);
-}
-
-// ДИАГНОСТИКА
-$('diagBtn').onclick = () => { $('log-box').innerHTML = ''; $('diagModal').style.display = 'flex'; };
-$('closeDiagBtn').onclick = () => $('diagModal').style.display = 'none';
-$('forceResetBtn').onclick = async () => {
-  forceResetUI();
-  try { if (nTTS) await nTTS.stop(); } catch(e){}
-  try { if (nSTT) await nSTT.stop(); } catch(e){}
-  if (S.apiAbort) { S.apiAbort.abort(); S.apiAbort = null; }
-  $('log-box').innerHTML = '> ✅ Система полностью сброшена.\n';
-  $('log-box').style.display = 'block';
-};
-
-$('testApiBtn').onclick = async () => {
-  if(!S.key) return alert("Введите ключ!");
-  var box = $('log-box'); box.style.display = 'block'; box.innerHTML = '> Проверка API...\n';
-  try {
-    var res = await fetch('https://api.groq.com/openai/v1/models', { headers: {'Authorization': 'Bearer '+S.key} });
-    box.innerHTML += res.ok ? '> ✅ API работает.\n' : `> ❌ API ошибка: ${res.status}\n`;
-  } catch(e) { box.innerHTML += "> ❌ Ошибка сети: "+e.message+"\n"; }
-};
-
-$('testTtsBtn').onclick = async () => {
-  var box = $('log-box'); box.style.display = 'block'; box.innerHTML = '> Проверка TTS...\n';
-  try {
-    if(nTTS) { await nTTS.speak({ text: "Проверка связи", lang: 'ru-RU' }); box.innerHTML += '> ✅ TTS работает.\n'; }
-    else box.innerHTML += '> ❌ TTS недоступен.\n';
-  } catch(e) { box.innerHTML += "> ❌ Ошибка TTS: "+e.message+"\n"; }
-};
-
-$('testSttBtn').onclick = async () => {
-  var box = $('log-box'); box.style.display = 'block'; box.innerHTML = '> Проверка STT...\n';
-  try {
-    if(nSTT) { await nSTT.start({ language: 'ru-RU', popup: false }); box.innerHTML += '> 🎤 Микрофон запущен (говори)...\n'; setTimeout(async () => { await nSTT.stop(); box.innerHTML += '> ✅ STT работает.\n'; }, 3000); }
-    else box.innerHTML += '> ❌ STT недоступен.\n';
-  } catch(e) { box.innerHTML += "> ❌ Ошибка STT: "+e.message+"\n"; }
-};
-</script>
-</body>
-</html>
+// ✨ ДОБАВЛЕНИЕ КАСТОМНОГО ПЕРСОНАЖА
+$('addCharBtn').onclick = () => {
+  vibrate();
+  var name = $('customName').value.trim();
+  var emoji = $('customEmoji').value.trim() || '🤖';
+  var prompt = $('customPrompt').value.trim();
+  
+  if(!name || !prompt) return alert("Заполни имя и характер!");
+  
+  var id = 'custom_' + Date.now();
+  CHARS[id] = { name: name, emoji: emoji, pitch: 1.0, rate: 1.0, prompt: prompt + strictRule, hello: "Привет! Я " + name };
+  
+  customChars[id] = CHARS[id];
+  localStorage.setItem('p_custom_chars', JSON.stringify(customChars));
+  
+  $('customName').value = '';
+  $('customEmoji').value = '';
+ 
