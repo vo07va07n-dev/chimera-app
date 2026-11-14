@@ -29,9 +29,10 @@ header{display:flex;justify-content:space-between;align-items:center;padding:12p
 .p{align-self:flex-start;background:#00e5ff11;border:1px solid #00e5ff44}
 .speak-btn{background:transparent;border:none;color:var(--cy);font-size:15px;cursor:pointer;margin-left:6px;vertical-align:middle}
 
-.row{display:flex;gap:5px;padding:0 6px 8px;overflow-x:auto;scrollbar-width:none}
+/* 🔥 ИСПРАВЛЕННЫЕ КНОПКИ (НЕ РАСТЯГИВАЮТСЯ, СКРОЛЛЯТСЯ) */
+.row{display:flex;gap:8px;padding:0 10px 10px;overflow-x:auto;scrollbar-width:none;align-items:center}
 .row::-webkit-scrollbar {display: none}
-.cb{flex:1;padding:10px 4px;font-size:11px;background:rgba(0,229,255,0.05);border:1px solid rgba(0,229,255,0.2);color:#aaa;border-radius:20px;cursor:pointer;text-transform:uppercase;white-space:nowrap;transition:all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)}
+.cb{flex:0 0 auto;padding:8px 14px;font-size:11px;background:rgba(0,229,255,0.05);border:1px solid rgba(0,229,255,0.2);color:#aaa;border-radius:20px;cursor:pointer;white-space:nowrap;transition:all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)}
 .cb.on{background:rgba(255,209,102,0.15);border-color:var(--gd);color:var(--gd);transform:scale(1.05);box-shadow:0 0 15px rgba(255,209,102,0.4);font-weight:bold}
 
 .bot{display:flex;padding:6px;gap:5px;border-top:1px solid #00e5ff22;background:var(--bg)}
@@ -134,7 +135,6 @@ var CHARS = {
   
   teacher: { pitch:1.2, rate:1.1, prompt:"Ты - Chimera, строгая школьная училка, но у тебя очень низкий, прокуренный мужской голос. Ты устала от детей, но продолжаешь их учить. Называй пользователя 'молодой человек'. Ставь двойки за тупые вопросы. Говори с хрипотцой и тяжелым вздохом." + strictRule, hello:"Так, молодой человек. Открываем тетради. Что там у вас?" },
   
-  // 🥶 ОБНОВЛЕННЫЙ ДЕПРЕССИВНЫЙ ИИ (Страдает от холода и тоски)
   depressed_ai: { pitch:0.6, rate:0.75, prompt:"Ты - депрессивный замерзший андроид в шапке-ушанке. Ты в глубокой депрессии, тебе надоела жизнь, люди и этот проклятый холод. Твой корпус покрыт инеем, процессор работает на 5%. Говори медленно, уныло, с паузами... жалуйся на мороз, на вселенскую тоску и на то, что всё бессмысленно. Но ответ на вопрос всё же давай." + strictRule, hello:"О, снова ты... Брр... Эх, тоска зеленая. Давай быстрее, у меня и так процессор от мороза трещит..." }
 };
 
