@@ -1,12 +1,13 @@
 {
   "name": "chimera-builder",
   "version": "1.0.0",
-  "description": "HTML to APK Builder with Native TTS",
   "dependencies": {
     "@capacitor/android": "^6.0.0",
     "@capacitor/core": "^6.0.0",
     "@capacitor-community/text-to-speech": "^5.0.0",
-    "@capacitor-community/speech-recognition": "^6.0.0"
+    "@capacitor-community/speech-recognition": "^6.0.0",
+    "@capacitor/haptics": "^6.0.0",
+    "@capacitor/device": "^6.0.0"
   },
   "devDependencies": {
     "@capacitor/cli": "^6.0.0"
