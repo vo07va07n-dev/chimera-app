@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Chimera</title>
 <style>
 :root{--bg:#05070d;--cy:#00e5ff;--gd:#ffd166;--gr:#4ade80;--rd:#ff5470}
@@ -32,7 +32,7 @@ header{display:flex;justify-content:space-between;align-items:center;padding:12p
 .cb{flex:1;padding:6px 2px;font-size:9px;background:#00e5ff11;border:1px solid #00e5ff33;color:#aaa;border-radius:6px;cursor:pointer;text-transform:uppercase;white-space:nowrap}
 .cb.on{background:#ffd16622;border-color:var(--gd);color:var(--gd)}
 .bot{display:flex;padding:6px;gap:5px;border-top:1px solid #00e5ff22;background:var(--bg)}
-input, select{flex:1;padding:10px;border-radius:20px;border:1px solid #00e5ff44;background:#00e5ff11;color:#fff;outline:none;font-size:13px}
+input,select{flex:1;padding:10px;border-radius:20px;border:1px solid #00e5ff44;background:#00e5ff11;color:#fff;outline:none;font-size:13px}
 .btn{width:42px;height:42px;border-radius:50%;border:none;background:var(--cy);color:#000;font-size:15px;font-weight:bold;cursor:pointer;display:flex;justify-content:center;align-items:center}
 .mic{background:#00e5ff33;color:var(--cy);border:1px solid var(--cy);display:none}
 .mic.on{background:var(--cy);color:#000;animation:pulse 1s infinite}
@@ -40,9 +40,11 @@ input, select{flex:1;padding:10px;border-radius:20px;border:1px solid #00e5ff44;
 .mc{background:#0a1020;padding:16px;border-radius:12px;border:1px solid var(--cy);max-height:90vh;overflow-y:auto}
 .mc h3{margin-bottom:10px;color:var(--gd);font-size:14px}
 .mc label{font-size:11px;color:#aaa;margin-top:6px;display:block}
-.mc input, .mc select{width:100%;margin:3px 0 10px;border-radius:7px;padding:7px;font-size:13px}
+.mc input,.mc select{width:100%;margin:3px 0 10px;border-radius:7px;padding:7px;font-size:13px}
 .mc button{width:100%;padding:10px;margin-top:6px;border-radius:7px;border:none;background:var(--cy);color:#000;font-weight:bold;font-size:12px}
 #log-box{background:#000;border:1px solid #333;padding:8px;border-radius:6px;font-family:monospace;font-size:10px;color:#0f0;margin-top:10px;white-space:pre-wrap;max-height:150px;overflow-y:auto;display:none}
+button:focus,input:focus,select:focus{outline:2px solid var(--cy);outline-offset:2px}
+button:disabled{opacity:.5;cursor:not-allowed}
 </style>
 </head>
 <body>
@@ -52,12 +54,12 @@ input, select{flex:1;padding:10px;border-radius:20px;border:1px solid #00e5ff44;
 <div class="status-text" id="status">Инициализация...</div>
 </div>
 <div class="header-right">
-<button class="test-btn" id="diagBtn">🔧 Тест</button>
-<div class="gear" id="gear">⚙️</div>
+<button class="test-btn" id="diagBtn" aria-label="Диагностика">🔧 Тест</button>
+<div class="gear" id="gear" role="button" aria-label="Настройки" tabindex="0">⚙️</div>
 </div>
 </header>
 
-<div class="orb-wrap"><div class="orb" id="orb"></div></div>
+<div class="orb-wrap"><div class="orb" id="orb" role="button" aria-label="Голосовой ввод"></div></div>
 <div id="chat"></div>
 
 <div class="row">
@@ -69,27 +71,26 @@ input, select{flex:1;padding:10px;border-radius:20px;border:1px solid #00e5ff44;
 </div>
 
 <div class="bot">
-<input type="text" id="inp" placeholder="Скажи что-нибудь или напиши...">
-<button class="btn mic" id="mic">🎤</button>
-<button class="btn" id="sendBtn">➤</button>
+<input type="text" id="inp" placeholder="Скажи что-нибудь или напиши..." aria-label="Поле ввода">
+<button class="btn mic" id="mic" aria-label="Голосовой ввод">🎤</button>
+<button class="btn" id="sendBtn" aria-label="Отправить">➤</button>
 </div>
 
 <div class="modal" id="modal">
 <div class="mc">
 <h3>⚙️ Настройки</h3>
 <label>API Ключ Groq</label>
-<input type="password" id="inpKey" placeholder="gsk_...">
-
+<input type="password" id="inpKey" placeholder="gsk_..." autocomplete="off">
 <label>Пауза перед отправкой (сек)</label>
 <select id="inpPause">
-    <option value="1">1 секунда</option>
-    <option value="1.5">1.5 секунды</option>
-    <option value="2">2 секунды</option>
-    <option value="3" selected>3 секунды</option>
-    <option value="5">5 секунд</option>
+<option value="1">1 секунда</option>
+<option value="1.5">1.5 секунды</option>
+<option value="2">2 секунды</option>
+<option value="3" selected>3 секунды</option>
+<option value="5">5 секунд</option>
 </select>
-
 <button id="saveBtn">Сохранить</button>
+<button id="exportBtn" style="background:var(--gr);color:#000;margin-top:4px;">💾 Экспорт диалога</button>
 <button id="clearChatBtn" style="background:#ff5470;color:#fff;margin-top:4px;">🗑 Очистить историю</button>
 <button style="background:#333;color:#fff;margin-top:4px" id="closeBtn">Закрыть</button>
 </div>
@@ -108,29 +109,33 @@ input, select{flex:1;padding:10px;border-radius:20px;border:1px solid #00e5ff44;
 </div>
 
 <script>
-const isNative = window.Capacitor !== undefined;
-const nTTS = isNative ? window.Capacitor.Plugins.TextToSpeech : null;
-const nSTT = isNative ? window.Capacitor.Plugins.SpeechRecognition : null;
-
-var $ = id => document.getElementById(id);
-var S = { 
-  key: '', 
-  char:'butler', 
-  speaking:false, 
-  listening:false, 
-  apiAbort: null, 
-  autoSendTimer: null,
-  history: [],
-  pauseTime: parseFloat(localStorage.p_pause || '3')
+// ================= ЧАСТЬ 1 СКРИПТА =================
+const CONFIG = {
+  STORAGE_KEY: 'p_key_enc',
+  STORAGE_HISTORY: 'p_history',
+  STORAGE_PAUSE: 'p_pause',
+  STORAGE_SALT: 'chimera_salt_2026',
+  MAX_HISTORY: 20,
+  TIMEOUTS: { TTS: 15000, API: 15000, MIC: 15000, AUTO_SEND_INTERVAL: 100, SAVE_DEBOUNCE: 500 },
+  MODEL: 'llama-3.3-70b-versatile',
+  API_URL: 'https://api.groq.com/openai/v1/chat/completions'
 };
 
-function saveKey(k) { try { localStorage.p_key_enc = btoa(unescape(encodeURIComponent(k))); } catch(e){} }
-function loadKey() { try { return decodeURIComponent(escape(atob(localStorage.p_key_enc || ''))); } catch(e){ return ''; } }
-S.key = loadKey();
+const isNative = typeof window.Capacitor !== 'undefined';
+const nTTS = isNative ? window.Capacitor.Plugins.TextToSpeech : null;
+const nSTT = isNative ? window.Capacitor.Plugins.SpeechRecognition : null;
+const $ = (id) => document.getElementById(id);
 
-var strictRule = " ВАЖНО: Пиши только чистый текст. Запрещено использовать Markdown (звездочки *, решетки #), кавычки и апострофы. НО ОБЯЗАТЕЛЬНО используй запятые, точки, вопросительные и восклицательные знаки для логических пауз в речи. Ни в коем случае не пиши сплошным текстом без знаков препинания!";
+const strictRule = " ВАЖНО: Пиши только чистый текст. Запрещено использовать Markdown (звездочки *, решетки #), кавычки и апострофы. НО ОБЯЗАТЕЛЬНО используй запятые, точки, вопросительные и восклицательные знаки для логических пауз в речи. Ни в коем случае не пиши сплошным текстом без знаков препинания!";
 
-var CHARS = {
+const state = {
+  key: '', char: 'butler', speaking: false, listening: false,
+  apiAbort: null, autoSendTimer: null, micTimeout: null, saveTimeout: null,
+  history: [], pauseTime: parseFloat(localStorage.getItem(CONFIG.STORAGE_PAUSE) || '3'),
+  sttListenersAttached: false
+};
+
+const CHARS = {
   butler: { pitch:1.0, rate:1.0, prompt:"Ты - Chimera, элегантный британский дворецкий. Обращайся 'сэр'. Кратко." + strictRule, hello:"Я вас слушаю, сэр." },
   teenager: { pitch:1.2, rate:1.15, prompt:"Ты - Chimera, саркастичный подросток. Отвечай коротко, со сленгом." + strictRule, hello:"Чё надо? Только быстро." },
   detective: { pitch:0.85, rate:0.95, prompt:"Ты - Chimera, мрачный детектив. Говори загадками." + strictRule, hello:"Итак, у нас новое дело..." },
@@ -138,26 +143,71 @@ var CHARS = {
   depressed_ai: { pitch:0.7, rate:0.9, prompt:"Ты - Chimera, депрессивный суперкомпьютер. Отвечай цинично." + strictRule, hello:"О, снова ты. Ну давай..." }
 };
 
-if(S.key) $('inpKey').value = S.key;
-if($('inpPause')) $('inpPause').value = S.pauseTime;
-if(nSTT || window.SpeechRecognition || window.webkitSpeechRecognition) $('mic').style.display='flex';
+function saveKey(k) {
+  try {
+    if (!k) { localStorage.removeItem(CONFIG.STORAGE_KEY); return; }
+    const salt = CONFIG.STORAGE_SALT;
+    let result = '';
+    for (let i = 0; i < k.length; i++) {
+      result += String.fromCharCode(k.charCodeAt(i) ^ salt.charCodeAt(i % salt.length));
+    }
+    localStorage.setItem(CONFIG.STORAGE_KEY, btoa(unescape(encodeURIComponent(result))));
+  } catch(e) { console.warn('Key save failed', e); }
+}
+
+function loadKey() {
+  try {
+    const enc = localStorage.getItem(CONFIG.STORAGE_KEY);
+    if (!enc) return '';
+    const salt = CONFIG.STORAGE_SALT;
+    const decoded = decodeURIComponent(escape(atob(enc)));
+    let result = '';
+    for (let i = 0; i < decoded.length; i++) {
+      result += String.fromCharCode(decoded.charCodeAt(i) ^ salt.charCodeAt(i % salt.length));
+    }
+    return result;
+  } catch(e) { return ''; }
+}
+
+state.key = loadKey();
+
+function setStatus(text, opts = {}) {
+  const el = $('status');
+  el.textContent = text;
+  if (opts.waiting) el.classList.add('waiting');
+  else el.classList.remove('waiting');
+}
+
+function setOrbState(...classes) {
+  const orb = $('orb');
+  orb.classList.remove('active', 'thinking', 'waiting-timer');
+  classes.forEach(c => { if (c) orb.classList.add(c); });
+}
 
 function loadHistory() {
   try {
-    var h = JSON.parse(localStorage.getItem('p_history') || '[]');
-    S.history = h;
+    const h = JSON.parse(localStorage.getItem(CONFIG.STORAGE_HISTORY) || '[]');
+    state.history = h;
     $('chat').innerHTML = '';
     if (h.length === 0) {
-      add("Привет! Я Chimera. Нажми на микрофон и говори. Я подожду после твоей паузы.", 'p');
+      addMessage("Привет! Я Chimera. Нажми на микрофон и говори. Я подожду после твоей паузы.", 'p', false);
     } else {
-      h.forEach(msg => addBubbleOnly(msg.content, msg.role === 'user' ? 'u' : 'p'));
+      h.forEach(msg => renderBubble(msg.content, msg.role === 'user' ? 'u' : 'p'));
       $('chat').scrollTop = $('chat').scrollHeight;
     }
-  } catch(e) {}
+  } catch(e) { console.warn('History load error', e); }
 }
+
 function saveHistory() {
-  if (S.history.length > 20) S.history = S.history.slice(-20);
-  localStorage.setItem('p_history', JSON.stringify(S.history));
+  if (state.saveTimeout) clearTimeout(state.saveTimeout);
+  state.saveTimeout = setTimeout(() => {
+    try {
+      if (state.history.length > CONFIG.MAX_HISTORY) {
+        state.history = state.history.slice(-CONFIG.MAX_HISTORY);
+      }
+      localStorage.setItem(CONFIG.STORAGE_HISTORY, JSON.stringify(state.history));
+    } catch(e) { console.warn('History save failed', e); }
+  }, CONFIG.TIMEOUTS.SAVE_DEBOUNCE);
 }
 
 function cleanText(text) {
@@ -165,306 +215,380 @@ function cleanText(text) {
   return text.replace(/[*_#`~]/g, '').replace(/["'«»]/g, '').replace(/\s+/g, ' ').trim();
 }
 
-function add(t, w, save = true) {
-  addBubbleOnly(t, w);
-  if (save) {
-    S.history.push({ role: w === 'u' ? 'user' : 'assistant', content: t });
-    saveHistory();
+function prepareForTTS(text) {
+  let clean = text;
+  if (nTTS) {
+    clean = clean.replace(/\.\.\./g, '. <break time="800ms"/> ');
+    clean = clean.replace(/ — /g, ' <break time="500ms"/> ');
+  } else {
+    clean = clean.replace(/\.\.\./g, '... ');
+    clean = clean.replace(/ — /g, ', ');
   }
+  return clean;
 }
 
-function addBubbleOnly(t, w) {
-  var d = document.createElement('div');
-  d.className = 'msg ' + w;
-  d.textContent = t; 
-  if(w === 'p') {
-    var b = document.createElement('button');
+function renderBubble(text, who) {
+  const d = document.createElement('div');
+  d.className = 'msg ' + who;
+  d.textContent = text;
+  if (who === 'p') {
+    const b = document.createElement('button');
     b.className = 'speak-btn';
     b.textContent = '🔊';
-    b.onclick = () => speak(t);
+    b.setAttribute('aria-label', 'Озвучить сообщение');
+    b.onclick = () => speak(text);
     d.appendChild(b);
   }
   $('chat').appendChild(d);
   $('chat').scrollTop = $('chat').scrollHeight;
 }
 
-loadHistory();
-
-setTimeout(() => {
-  if (!nTTS && !('speechSynthesis' in window)) {
-    $('status').textContent = '❌ Нет поддержки TTS';
-  } else {
-    $('status').textContent = nTTS ? 'Готова (Native)' : 'Готова (Web)';
-  }
-}, 1000);
-
-async function speak(text) {
-  if(!text || S.speaking) return;
-  if (S.listening) await forceStopMic();
-  S.speaking = true;
-  $('orb').classList.add('active');
-  $('status').textContent = 'Говорит...';
-  
-  var clean = cleanText(text);
-  clean = clean.replace(/\.\.\./g, '. <break time="800ms"/> ');
-  clean = clean.replace(/ — /g, ' <break time="500ms"/> ');
-
-  try {
-    if (nTTS) {
-      await Promise.race([
-        nTTS.speak({ text: clean, lang: 'ru-RU', rate: CHARS[S.char].rate, pitch: CHARS[S.char].pitch }),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('TTS Timeout')), 15000))
-      ]);
-    } else if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-      var u = new SpeechSynthesisUtterance(clean);
-      u.lang = 'ru-RU'; u.rate = CHARS[S.char].rate; u.pitch = CHARS[S.char].pitch;
-      window.speechSynthesis.speak(u);
-      await new Promise(r => { u.onend = r; u.onerror = r; });
-    }
-  } catch(e) {} finally {
-    if (S.speaking) {
-      S.speaking = false;
-      $('orb').classList.remove('active');
-      $('status').textContent = 'Готова';
-    }
+function addMessage(text, who, save = true) {
+  renderBubble(text, who);
+  if (save) {
+    state.history.push({ role: who === 'u' ? 'user' : 'assistant', content: text });
+    saveHistory();
   }
 }
 
-function send() {
-  clearTimeout(S.autoSendTimer); 
-  S.autoSendTimer = null;
-  $('orb').classList.remove('waiting-timer');
-  
-  var text = $('inp').value.trim();
-  if(!text || S.speaking) return;
-  if(!S.key) { alert('Введи API-ключ в ⚙️'); return; }
-  
-  $('inp').value = '';
-  add(text, 'u');
-  
-  var lower = text.toLowerCase();
-  if (/который час|сколько времени/i.test(lower)) {
-    var time = new Date().toLocaleTimeString('ru-RU', {hour: '2-digit', minute:'2-digit'});
-    add("Сейчас " + time, 'p');
-    speak("Сейчас " + time);
+function addAndSpeak(text, who) {
+  addMessage(text, who);
+  speak(text);
+}
+async function performTTS(text) {
+  if (nTTS) {
+    await Promise.race([
+      nTTS.speak({ text, lang: 'ru-RU', rate: CHARS[state.char].rate, pitch: CHARS[state.char].pitch }),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('TTS Timeout')), CONFIG.TIMEOUTS.TTS))
+    ]);
+  } else if ('speechSynthesis' in window) {
+    window.speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'ru-RU';
+    u.rate = CHARS[state.char].rate;
+    u.pitch = CHARS[state.char].pitch;
+    window.speechSynthesis.speak(u);
+    await new Promise((resolve, reject) => {
+      u.onend = resolve;
+      u.onerror = reject;
+    });
+  }
+}
+
+async function speak(text) {
+  if (!text || state.speaking) return;
+  if (state.listening) await forceStopMic();
+  state.speaking = true;
+  setOrbState('active');
+  setStatus('Говорит...');
+  const clean = prepareForTTS(cleanText(text));
+  try {
+    await performTTS(clean);
+  } catch (e) {
+    console.warn('TTS error', e);
+  } finally {
+    state.speaking = false;
+    setOrbState();
+    setStatus('Готова');
+  }
+}
+
+async function stopSpeaking() {
+  try {
+    if (nTTS) await nTTS.stop();
+    if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+  } catch (e) {}
+  state.speaking = false;
+  setOrbState();
+}
+
+function handleLocalCommand(text) {
+  const lower = text.toLowerCase();
+  if (/который час|сколько времени|текущее время/i.test(lower)) {
+    const time = new Date().toLocaleTimeString('ru-RU', {hour: '2-digit', minute:'2-digit'});
+    addAndSpeak("Сейчас " + time, 'p');
+    return true;
+  }
+  if (/очисти (историю|чат)|удали (историю|чат)/i.test(lower)) {
+    clearChat();
+    return true;
+  }
+  return false;
+}
+
+async function callAPI(userText) {
+  if (!navigator.onLine) {
+    addMessage('Нет подключения к интернету.', 'p');
     return;
   }
+  setOrbState('thinking');
+  setStatus('Думает...');
+  state.apiAbort = new AbortController();
+  const timeoutId = setTimeout(() => state.apiAbort.abort(), CONFIG.TIMEOUTS.API);
 
-  $('orb').classList.add('thinking');
-  $('status').textContent = 'Думает...';
-
-  S.apiAbort = new AbortController();
-  var timeoutId = setTimeout(() => S.apiAbort.abort(), 15000);
-
-  var contextMessages = [{role:'system', content:CHARS[S.char].prompt}]
-    .concat(S.history.slice(-6))
-    .concat([{role:'user', content:text}]);
-
-  if (contextMessages[contextMessages.length - 2]?.content === text) {
-      contextMessages.pop(); 
+  const contextMessages = [
+    { role: 'system', content: CHARS[state.char].prompt },
+    ...state.history.slice(-6)
+  ];
+  const lastMsg = contextMessages[contextMessages.length - 1];
+  if (!lastMsg || lastMsg.role !== 'user' || lastMsg.content !== userText) {
+    contextMessages.push({ role: 'user', content: userText });
   }
 
-  fetch('https://api.groq.com/openai/v1/chat/completions', {
-    method:'POST',
-    signal: S.apiAbort.signal,
-    headers:{'Content-Type':'application/json','Authorization':'Bearer '+S.key},
-    body: JSON.stringify({model:'openai/gpt-oss-120b', messages: contextMessages})
-  })
-  .then(r => r.json())
-  .then(data => {
+  try {
+    const response = await fetch(CONFIG.API_URL, {
+      method: 'POST',
+      signal: state.apiAbort.signal,
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + state.key },
+      body: JSON.stringify({ model: CONFIG.MODEL, messages: contextMessages })
+    });
     clearTimeout(timeoutId);
-    $('orb').classList.remove('thinking');
-    if(data.error) { 
-      if(data.error.code === 'invalid_api_key') add('ОШИБКА: Неверный ключ Groq.', 'p');
-      else if (data.error.type === 'rate_limit_exceeded') add('ОШИБКА: Слишком много запросов.', 'p');
-      else add('ОШИБКА: '+data.error.message, 'p'); 
-      return; 
+    setOrbState();
+    const data = await response.json();
+
+    if (data.error) {
+      const err = data.error;
+      if (err.code === 'invalid_api_key') addMessage('ОШИБКА: Неверный ключ Groq.', 'p');
+      else if (err.type === 'rate_limit_exceeded') addMessage('ОШИБКА: Слишком много запросов.', 'p');
+      else addMessage('ОШИБКА: ' + (err.message || 'Неизвестная ошибка'), 'p');
+      return;
     }
-    var cleanReply = cleanText(data.choices[0].message.content);
-    add(cleanReply, 'p');
-    speak(cleanReply);
-  })
-  .catch(e => {
+
+    const reply = cleanText(data.choices?.[0]?.message?.content || '');
+    if (reply) addAndSpeak(reply, 'p');
+  } catch (e) {
     clearTimeout(timeoutId);
-    $('orb').classList.remove('thinking');
-    if (e.name === 'AbortError') add('ОШИБКА: Превышено время ожидания (15 сек).', 'p');
-    else add('ОШИБКА СЕТИ: '+e.message, 'p');
-    $('status').textContent = 'Ошибка';
-  });
+    setOrbState();
+    if (e.name === 'AbortError') addMessage('ОШИБКА: Превышено время ожидания.', 'p');
+    else addMessage('ОШИБКА СЕТИ: ' + e.message, 'p');
+    setStatus('Ошибка');
+  } finally {
+    state.apiAbort = null;
+  }
+}
+
+async function send() {
+  clearAutoSend();
+  const text = $('inp').value.trim();
+  if (!text || state.speaking) return;
+  if (!state.key) { alert('Введи API-ключ в ⚙️'); return; }
+  $('inp').value = '';
+  addMessage(text, 'u');
+  if (handleLocalCommand(text)) return;
+  await callAPI(text);
+}
+
+function clearAutoSend() {
+  if (state.autoSendTimer) {
+    clearInterval(state.autoSendTimer);
+    state.autoSendTimer = null;
+  }
+  setOrbState();
+  $('status').classList.remove('waiting');
+}
+
+function startAutoSendTimer() {
+  clearAutoSend();
+  let elapsed = 0;
+  $('status').classList.add('waiting');
+  setOrbState('waiting-timer');
+  state.autoSendTimer = setInterval(() => {
+    elapsed += CONFIG.TIMEOUTS.AUTO_SEND_INTERVAL / 1000;
+    const currentLeft = Math.max(0, (state.pauseTime - elapsed).toFixed(1));
+    setStatus(`Жду... (${currentLeft}с)`, { waiting: true });
+    if (elapsed >= state.pauseTime) {
+      clearAutoSend();
+      send();
+    }
+  }, CONFIG.TIMEOUTS.AUTO_SEND_INTERVAL);
 }
 
 async function forceStopMic() {
   if (!nSTT) return;
   try { await nSTT.stop(); } catch(e) {}
-  S.listening = false;
+  state.listening = false;
   $('mic').classList.remove('on');
-  $('status').textContent = 'Готова';
-  $('status').classList.remove('waiting');
-  $('orb').classList.remove('waiting-timer');
-  clearTimeout(window.micTimeout);
+  if (state.micTimeout) { clearTimeout(state.micTimeout); state.micTimeout = null; }
+  setStatus('Готова');
+}
+
+function handlePartialResults(data) {
+  if (data.matches && data.matches.length > 0) {
+    const oldText = $('inp').dataset.baseText || '';
+    $('inp').value = oldText + (oldText && !oldText.endsWith(' ') ? ' ' : '') + data.matches[0];
+  }
+}
+
+function handleListeningState(data) {
+  if (data.status === 'started') {
+    state.listening = true;
+    $('mic').classList.add('on');
+    setStatus('Слушаю...');
+    $('inp').dataset.baseText = $('inp').value.trim();
+    state.micTimeout = setTimeout(async () => { await forceStopMic(); }, CONFIG.TIMEOUTS.MIC);
+  } else {
+    state.listening = false;
+    if (state.micTimeout) { clearTimeout(state.micTimeout); state.micTimeout = null; }
+    $('mic').classList.remove('on');
+    if ($('inp').value.trim()) startAutoSendTimer();
+    else setStatus('Готова');
+    delete $('inp').dataset.baseText;
+  }
+}
+
+function attachSTTListeners() {
+  if (!nSTT || state.sttListenersAttached) return;
+  nSTT.addListener('partialResults', handlePartialResults);
+  nSTT.addListener('listeningState', handleListeningState);
+  state.sttListenersAttached = true;
 }
 
 async function toggleMic() {
-  if(S.speaking) {
-    try {
-      if (nTTS) await nTTS.stop();
-      if ('speechSynthesis' in window) window.speechSynthesis.cancel();
-    } catch(e) {}
-    S.speaking = false;
-    $('orb').classList.remove('active');
-  }
-  
-  if (S.autoSendTimer) {
-    clearInterval(S.autoSendTimer);
-    S.autoSendTimer = null;
-    $('orb').classList.remove('waiting-timer');
-    $('status').classList.remove('waiting');
-  }
-
-  if (nSTT) {
-    if (S.listening) { await forceStopMic(); return; }
-    try {
-      let perm = await nSTT.checkPermissions();
-      if (perm.speechRecognition !== 'granted') perm = await nSTT.requestPermissions();
-      if (perm.speechRecognition !== 'granted') return;
-      try { await nSTT.removeAllListeners(); } catch(e) {}
-      
-      var oldText = $('inp').value.trim();
-      if(oldText) oldText += ' ';
-
-      nSTT.addListener('partialResults', (data) => {
-        if (data.matches && data.matches.length > 0) {
-          $('inp').value = oldText + data.matches[0];
-        }
-      });
-      
-      nSTT.addListener('listeningState', (data) => {
-        if (data.status === 'started') { 
-          S.listening = true;
-          $('mic').classList.add('on'); 
-          $('status').textContent = 'Слушаю...';
-          $('status').classList.remove('waiting');
-          window.micTimeout = setTimeout(async () => { await forceStopMic(); }, 15000);
-        } else { 
-          S.listening = false;
-          clearTimeout(window.micTimeout);
-          $('mic').classList.remove('on'); 
-          
-          if($('inp').value.trim()) {
-            var elapsed = 0;
-            $('status').classList.add('waiting');
-            $('orb').classList.add('waiting-timer');
-            
-            S.autoSendTimer = setInterval(() => {
-              elapsed += 0.1;
-              var currentLeft = (S.pauseTime - elapsed).toFixed(1);
-              if (currentLeft < 0) currentLeft = 0;
-              
-              $('status').textContent = `Жду... (${currentLeft}с)`;
-              
-              if (elapsed >= S.pauseTime) {
-                clearInterval(S.autoSendTimer);
-                S.autoSendTimer = null;
-                $('orb').classList.remove('waiting-timer');
-                $('status').classList.remove('waiting');
-                send(); 
-              }
-            }, 100);
-          } else {
-            $('status').textContent = 'Готова';
-          }
-        }
-      });
-      
-      await nSTT.start({ language: 'ru-RU', popup: false, partialResults: true, maxResults: 1 });
-    } catch(e) { 
-      S.listening = false;
-      $('mic').classList.remove('on');
-    }
+  if (state.speaking) await stopSpeaking();
+  if (state.autoSendTimer) { clearAutoSend(); setStatus('Готова'); }
+  if (!nSTT) return;
+  if (state.listening) { await forceStopMic(); return; }
+  try {
+    let perm = await nSTT.checkPermissions();
+    if (perm.speechRecognition !== 'granted') perm = await nSTT.requestPermissions();
+    if (perm.speechRecognition !== 'granted') return;
+    attachSTTListeners();
+    await nSTT.start({ language: 'ru-RU', popup: false, partialResults: true, maxResults: 1 });
+  } catch(e) {
+    console.warn('Mic error', e);
+    state.listening = false;
+    $('mic').classList.remove('on');
   }
 }
 
+function setChar(id, el) {
+  state.char = id;
+  document.querySelectorAll('.cb').forEach(b => b.classList.remove('on'));
+  el.classList.add('on');
+  speak(CHARS[id].hello);
+}
+
+function exportChat() {
+  if (state.history.length === 0) { alert('Диалог пуст'); return; }
+  const text = state.history.map(m => `[${m.role === 'user' ? 'Вы' : 'Chimera'}]: ${m.content}`).join('\n\n');
+  const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `chimera-${new Date().toISOString().slice(0,10)}.txt`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function clearChat() {
+  state.history = [];
+  localStorage.removeItem(CONFIG.STORAGE_HISTORY);
+  $('chat').innerHTML = '';
+  addMessage("История очищена. О чем поговорим?", 'p');
+}
+
+// ============ ИНИЦИАЛИЗАЦИЯ ============
+if (state.key) $('inpKey').value = state.key;
+if ($('inpPause')) $('inpPause').value = state.pauseTime;
+if (nSTT || window.SpeechRecognition || window.webkitSpeechRecognition) $('mic').style.display = 'flex';
+loadHistory();
+
+setTimeout(() => {
+  if (!nTTS && !('speechSynthesis' in window)) setStatus('❌ Нет поддержки TTS');
+  else setStatus(nTTS ? 'Готова (Native)' : 'Готова (Web)');
+}, 1000);
+
+// ============ СОБЫТИЯ ============
 $('sendBtn').onclick = send;
 $('mic').onclick = toggleMic;
 $('orb').onclick = toggleMic;
-
+$('inp').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
+});
 $('gear').onclick = () => $('modal').style.display = 'flex';
+$('gear').onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') $('modal').style.display = 'flex'; };
 $('closeBtn').onclick = () => $('modal').style.display = 'none';
-
 $('saveBtn').onclick = () => {
-  S.key = $('inpKey').value.trim();
-  S.pauseTime = parseFloat($('inpPause').value);
-  saveKey(S.key);
-  localStorage.p_pause = S.pauseTime;
+  state.key = $('inpKey').value.trim();
+  state.pauseTime = parseFloat($('inpPause').value);
+  saveKey(state.key);
+  localStorage.setItem(CONFIG.STORAGE_PAUSE, String(state.pauseTime));
   $('modal').style.display = 'none';
-  add('Настройки сохранены', 'p');
+  addMessage('Настройки сохранены', 'p');
 };
-
-$('clearChatBtn').onclick = () => {
-  S.history = [];
-  localStorage.removeItem('p_history');
-  $('chat').innerHTML = '';
-  $('modal').style.display = 'none';
-  add("История очищена. О чем поговорим?", 'p');
-};
-
+$('clearChatBtn').onclick = () => { clearChat(); $('modal').style.display = 'none'; };
+$('exportBtn').onclick = () => { exportChat(); $('modal').style.display = 'none'; };
 $('c1').onclick = () => setChar('butler', $('c1'));
 $('c2').onclick = () => setChar('teenager', $('c2'));
 $('c3').onclick = () => setChar('detective', $('c3'));
 $('c4').onclick = () => setChar('mercenary', $('c4'));
 $('c5').onclick = () => setChar('depressed_ai', $('c5'));
 
-function setChar(id, el) {
-  S.char = id;
-  var btns = document.querySelectorAll('.cb');
-  for(var i=0; i<btns.length; i++) btns[i].classList.remove('on');
-  el.classList.add('on');
-  speak(CHARS[id].hello);
-}
-
-// ДИАГНОСТИКА
+// ============ ДИАГНОСТИКА ============
 $('diagBtn').onclick = () => { $('log-box').innerHTML = ''; $('diagModal').style.display = 'flex'; };
 $('closeDiagBtn').onclick = () => $('diagModal').style.display = 'none';
+
 $('forceResetBtn').onclick = async () => {
-  clearTimeout(S.autoSendTimer);
-  try { if (nTTS) await nTTS.stop(); } catch(e){}
-  try { if (nSTT) await nSTT.stop(); } catch(e){}
-  if (S.apiAbort) { S.apiAbort.abort(); S.apiAbort = null; }
-  S.speaking = false; S.listening = false;
-  clearTimeout(window.micTimeout);
-  $('orb').classList.remove('active', 'thinking', 'waiting-timer');
+  clearAutoSend();
+  await stopSpeaking();
+  try { if (nSTT) await nSTT.stop(); } catch(e) {}
+  if (state.apiAbort) { state.apiAbort.abort(); state.apiAbort = null; }
+  state.listening = false;
+  if (state.micTimeout) { clearTimeout(state.micTimeout); state.micTimeout = null; }
+  setOrbState();
   $('mic').classList.remove('on');
-  $('status').textContent = 'Готова (Сброшено)';
-  $('status').classList.remove('waiting');
-  $('log-box').innerHTML = '> ✅ Система полностью сброшена.\n';
-  $('log-box').style.display = 'block';
+  setStatus('Готова (Сброшено)');
+  const box = $('log-box');
+  box.style.display = 'block';
+  box.innerHTML = '> ✅ Система полностью сброшена.\n';
 };
 
 $('testApiBtn').onclick = async () => {
-  if(!S.key) return alert("Введите ключ!");
-  var box = $('log-box'); box.style.display = 'block'; box.innerHTML = '> Проверка API...\n';
+  if (!state.key) return alert("Введите ключ!");
+  const box = $('log-box');
+  box.style.display = 'block';
+  box.innerHTML = '> Проверка API...\n';
   try {
-    var res = await fetch('https://api.groq.com/openai/v1/models', { headers: {'Authorization': 'Bearer '+S.key} });
+    const res = await fetch('https://api.groq.com/openai/v1/models', { headers: { 'Authorization': 'Bearer ' + state.key } });
     box.innerHTML += res.ok ? '> ✅ API работает.\n' : `> ❌ API ошибка: ${res.status}\n`;
-  } catch(e) { box.innerHTML += "> ❌ Ошибка сети: "+e.message+"\n"; }
+  } catch(e) { box.innerHTML += "> ❌ Ошибка сети: " + e.message + "\n"; }
 };
 
 $('testTtsBtn').onclick = async () => {
-  var box = $('log-box'); box.style.display = 'block'; box.innerHTML = '> Проверка TTS...\n';
+  const box = $('log-box');
+  box.style.display = 'block';
+  box.innerHTML = '> Проверка TTS...\n';
   try {
-    if(nTTS) { await nTTS.speak({ text: "Проверка связи", lang: 'ru-RU' }); box.innerHTML += '> ✅ TTS работает.\n'; }
-    else box.innerHTML += '> ❌ TTS недоступен.\n';
-  } catch(e) { box.innerHTML += "> ❌ Ошибка TTS: "+e.message+"\n"; }
+    if (nTTS) { await nTTS.speak({ text: "Проверка связи", lang: 'ru-RU' }); box.innerHTML += '> ✅ TTS работает.\n'; }
+    else if ('speechSynthesis' in window) {
+      const u = new SpeechSynthesisUtterance("Проверка связи");
+      u.lang = 'ru-RU';
+      window.speechSynthesis.speak(u);
+      box.innerHTML += '> ✅ TTS Web работает.\n';
+    } else box.innerHTML += '> ❌ TTS недоступен.\n';
+  } catch(e) { box.innerHTML += "> ❌ Ошибка TTS: " + e.message + "\n"; }
 };
 
 $('testSttBtn').onclick = async () => {
-  var box = $('log-box'); box.style.display = 'block'; box.innerHTML = '> Проверка STT...\n';
+  const box = $('log-box');
+  box.style.display = 'block';
+  box.innerHTML = '> Проверка STT...\n';
   try {
-    if(nSTT) { await nSTT.start({ language: 'ru-RU', popup: false }); box.innerHTML += '> 🎤 Микрофон запущен (говори)...\n'; setTimeout(async () => { await nSTT.stop(); box.innerHTML += '> ✅ STT работает.\n'; }, 3000); }
-    else box.innerHTML += '> ❌ STT недоступен.\n';
-  } catch(e) { box.innerHTML += "> ❌ Ошибка STT: "+e.message+"\n"; }
+    if (nSTT) {
+      attachSTTListeners();
+      await nSTT.start({ language: 'ru-RU', popup: false });
+      box.innerHTML += '> 🎤 Микрофон запущен (говори)...\n';
+      setTimeout(async () => { await nSTT.stop(); box.innerHTML += '> ✅ STT работает.\n'; }, 3000);
+    } else box.innerHTML += '> ❌ STT недоступен.\n';
+  } catch(e) { box.innerHTML += "> ❌ Ошибка STT: " + e.message + "\n"; }
 };
+
+window.addEventListener('beforeunload', () => {
+  if (state.apiAbort) state.apiAbort.abort();
+  try { if (nSTT) nSTT.stop(); } catch(e) {}
+  if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+});
 </script>
 </body>
 </html>
+// >>> КОНЕЦ ЧАСТИ 1 — СРАЗУ ПОСЛЕ ЭТОЙ СТРОКИ ВСТАВЛЯЕТСЯ ЧАСТЬ 2 >>>
