@@ -6,10 +6,18 @@ on:
         description: 'Название приложения'
         required: true
         default: 'Chimera'
+      appDescription:
+        description: 'Описание'
+        required: false
+        default: 'Создано в моем конструкторе'
       appId:
         description: 'ID пакета'
         required: true
         default: 'com.chimera.app'
+      appVersion:
+        description: 'Версия'
+        required: true
+        default: '1.0.0'
 
 jobs:
   build:
@@ -17,6 +25,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
+      # 🚀 КЭШИРОВАНИЕ NPM (Ускоряет установку пакетов)
+      - name: Cache NPM dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: ${{ runner.os }}-node-
+
       - name: Setup Java 21
         uses: actions/setup-java@v4
         with:
@@ -37,16 +53,25 @@ jobs:
       - name: Генерация Android проекта
         run: npx cap add android
 
+      # 🚀 КЭШИРОВАНИЕ GRADLE (Ускоряет сборку APK)
+      - name: Cache Gradle dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: ${{ runner.os }}-gradle-
+
       - name: Применение кастомной иконки из корня
         run: |
           mkdir -p resources
           if [ -f icon.png ]; then mv icon.png resources/icon.png; fi
           npx @capacitor/assets generate --android
 
-      # 🔥 ДОБАВЛЕНО РАЗРЕШЕНИЕ VIBRATE 🔥
-      - name: Внедрение разрешений (TTS, Микрофон, Вибрация)
+      - name: Внедрение разрешений (TTS и Микрофон)
         run: |
-          node -e "const fs=require('fs'); const p='android/app/src/main/AndroidManifest.xml'; let c=fs.readFileSync(p,'utf8'); if(!c.includes('VIBRATE')) { c=c.replace('<application', '<uses-permission android:name=\"android.permission.RECORD_AUDIO\" /> <uses-permission android:name=\"android.permission.INTERNET\" /> <uses-permission android:name=\"android.permission.VIBRATE\" /> <queries><intent><action android:name=\"android.speech.RecognitionService\" /></intent><intent><action android:name=\"android.intent.action.TTS_SERVICE\" /></intent></queries> <application'); fs.writeFileSync(p,c); }"
+          node -e "const fs=require('fs'); const p='android/app/src/main/AndroidManifest.xml'; let c=fs.readFileSync(p,'utf8'); if(!c.includes('RECORD_AUDIO')) { c=c.replace('<application', '<uses-permission android:name=\"android.permission.RECORD_AUDIO\" /> <uses-permission android:name=\"android.permission.INTERNET\" /> <queries><intent><action android:name=\"android.speech.RecognitionService\" /></intent><intent><action android:name=\"android.intent.action.TTS_SERVICE\" /></intent></queries> <application'); fs.writeFileSync(p,c); }"
           
       - name: Синхронизация
         run: npx cap sync android
