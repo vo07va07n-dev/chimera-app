@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
     inputs:
       appName:
-        description: 'Название приложения'
+        description: 'Название'
         default: 'Chimera'
         required: true
       appVersion:
@@ -31,7 +31,7 @@ jobs:
         run: npm install
         
       - name: Inject API Key
-        run: node -e "const fs=require('fs'); let h=fs.readFileSync('www/index.html','utf8'); h=h.replace('__GROQ_API_KEY__',' fs.writeFileSync('www/index.html',h);"
+        run: sed -i 's/__GROQ_API_KEY__/${{ secrets.GROQ_API_KEY }}/g' www/index.html
         
       - name: Setup Capacitor
         run: node -e "let c=require('./capacitor.config.json'); c.appName='${{ github.event.inputs.appName }}'; c.appId='com.chimera.app'; require('fs').writeFileSync('./capacitor.config.json', JSON.stringify(c, null, 2));"
