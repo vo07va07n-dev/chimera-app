@@ -35,8 +35,7 @@ header{display:flex;justify-content:space-between;align-items:center;padding:12p
 .row::-webkit-scrollbar{display:none}
 .cb{flex:0 0 auto;padding:8px 16px;font-size:12px;background:rgba(0,229,255,0.05);border:1px solid rgba(0,229,255,0.15);color:#aaa;border-radius:24px;cursor:pointer;white-space:nowrap;transition:all 0.2s;position:relative;display:flex;align-items:center;gap:4px}
 .cb.on{background:rgba(255,209,102,0.15);border-color:var(--gd);color:var(--gd);box-shadow:0 0 15px rgba(255,209,102,0.3)}
-.del-btn{background:none;border:none;color:var(--rd);font-size:14px;margin-left:6px;display:none;cursor:pointer}
-.cb:active .del-btn{display:block}
+.del-btn{background:none;border:none;color:var(--rd);font-size:14px;margin-left:6px;cursor:pointer}
 .bot{display:flex;padding:10px 16px;gap:8px;border-top:1px solid rgba(0,229,255,0.1);background:var(--glass);backdrop-filter:blur(20px);padding-bottom:calc(10px + env(safe-area-inset-bottom))}
 input,select,textarea{flex:1;padding:12px 16px;border-radius:24px;border:1px solid rgba(0,229,255,0.2);background:rgba(0,229,255,0.05);color:#fff;outline:none;font-size:14px;transition:.3s}
 input:focus,textarea:focus{border-color:var(--cy);box-shadow:0 0 15px rgba(0,229,255,0.2)}
@@ -111,11 +110,19 @@ textarea{border-radius:16px;resize:vertical;min-height:80px}
 </div></div>
 
 <script>
+// 🛡️ БРОНИРОВАННАЯ ИНИЦИАЛИЗАЦИЯ
 try {
     var $ = id => document.getElementById(id);
     var isNat = typeof window.Capacitor !== 'undefined';
     var cP = isNat && window.Capacitor.Plugins ? window.Capacitor.Plugins : {};
-    var nTTS = cP.TextToSpeech || null, nSTT = cP.SpeechRecognition || null, nHap = cP.Haptics || null, nDev = cP.Device || null, nCam = cP.Camera || null, nNotif = cP.LocalNotifications || null;
+    
+    // Безопасно получаем плагины. Если их нет — будет null.
+    var nTTS = cP.TextToSpeech || null;
+    var nSTT = cP.SpeechRecognition || null;
+    var nHap = cP.Haptics || null;
+    var nDev = cP.Device || null;
+    var nCam = cP.Camera || null;
+    var nNotif = cP.LocalNotifications || null;
     
     var S = { key:'', char:'butler', speaking:false, listening:false, apiAbort:null, autoSendTimer:null, history:[], battery:'100', pauseTime:parseFloat(localStorage.getItem('p_pause')||'3') };
     var sR = " ВАЖНО: Пиши только чистый текст. Запрещено использовать Markdown (звездочки *, решетки #), кавычки и апострофы. НО ОБЯЗАТЕЛЬНО используй запятые, точки, вопросительные и восклицательные знаки.";
@@ -131,9 +138,14 @@ try {
     var CHARS = Object.assign({}, DC, cC);
 
     function vib() { if(nHap) try { nHap.impact({style:'MEDIUM'}); } catch(e){} }
-    if(nDev) nDev.getBatteryInfo().then(i => { S.battery = Math.round(i.batteryLevel*100) + (i.isCharging?'(заряд)':'%'); }).catch(()=>{});
     
-    if(nNotif) nNotif.requestPermissions();
+    // Асинхронные вызовы плагинов оборачиваем в try/catch и .catch()
+    if (nDev && nDev.getBatteryInfo) {
+        nDev.getBatteryInfo().then(i => { S.battery = Math.round(i.batteryLevel*100) + (i.isCharging?'(заряд)':'%'); }).catch(()=>{});
+    }
+    if (nNotif && nNotif.requestPermissions) {
+        nNotif.requestPermissions().catch(()=>{});
+    }
 
     function sK(k) { try { localStorage.setItem('p_k', btoa(unescape(encodeURIComponent(k)))); } catch(e){} }
     function lK() { try { return decodeURIComponent(escape(atob(localStorage.getItem('p_k')||''))); } catch(e){ return ''; } }
@@ -141,10 +153,12 @@ try {
 
     if(S.key) $('inpKey').value = S.key;
     if($('inpPause')) $('inpPause').value = S.pauseTime;
+    
+    // Показываем кнопки, если плагины доступны
     if(nSTT || window.SpeechRecognition || window.webkitSpeechRecognition) $('mic').style.display='flex';
     if(nCam) $('camBtn').style.display='flex';
 
-    // 🔥 РЕНДЕР ПЕРСОНАЖЕЙ С КНОПКОЙ УДАЛЕНИЯ
+    // РЕНДЕР ПЕРСОНАЖЕЙ
     function rC() {
         var r = $('chars-row'); if(!r) return; r.innerHTML='';
         for(let k in CHARS) {
@@ -154,8 +168,14 @@ try {
             b.innerHTML = (c.emoji||'🤖') + ' ' + c.name;
             if(k.startsWith('custom_')) {
                 let del = document.createElement('button');
-                del.className = 'del-btn'; del.innerHTML = '✖'; del.style.display = 'inline-block';
-                del.onclick = (e) => { e.stopPropagation(); delete CHARS[k]; delete cC[k]; localStorage.setItem('p_cc', JSON.stringify(cC)); if(S.char===k) S.char='butler'; rC(); };
+                del.className = 'del-btn'; del.innerHTML = '✖';
+                del.onclick = (e) => { 
+                    e.stopPropagation(); 
+                    delete CHARS[k]; delete cC[k]; 
+                    localStorage.setItem('p_cc', JSON.stringify(cC)); 
+                    if(S.char===k) S.char='butler'; 
+                    rC(); 
+                };
                 b.appendChild(del);
             }
             b.onclick = () => { vib(); sCh(k); };
@@ -213,10 +233,10 @@ try {
         } catch(e){} finally { clearTimeout(st); fR(); }
     }
 
-    // 📷 КАМЕРА И РАСПОЗНАВАНИЕ
+    // 📷 КАМЕРА
     $('camBtn').onclick = async () => {
         vib();
-        if(!nCam) return alert('Камера недоступна');
+        if(!nCam) return alert('Камера недоступна (плагин не установлен)');
         try {
             const image = await nCam.getPhoto({ resultType: 'base64', quality: 60, allowEditing: false, source: 'CAMERA' });
             var base64Image = "data:image/jpeg;base64," + image.base64String;
@@ -250,13 +270,12 @@ try {
         fR(); var t = $('inp').value.trim(); if(!t || S.speaking) return; if(!S.key) return alert('Введи API-ключ!');
         vib(); $('inp').value=''; aM(t,'u');
         
-        // Будильник (Напомни через X минут)
         var match = t.match(/напомни через (\d+)\s*(минут|мин|час)/i);
         if(match && nNotif) {
             let amount = parseInt(match[1]);
             let unit = match[2].toLowerCase();
             let ms = unit.startsWith('час') ? amount * 3600000 : amount * 60000;
-            nNotif.schedule({ notifications: [{ title: 'Chimera напоминает', body: t, schedule: { at: new Date(Date.now() + ms) }, id: Math.floor(Math.random()*10000) }] });
+            nNotif.schedule({ notifications: [{ title: 'Chimera напоминает', body: t, schedule: { at: new Date(Date.now() + ms) }, id: Math.floor(Math.random()*10000) }] }).catch(()=>{});
             aM("Хорошо, я напомню тебе об этом.", 'p'); spk("Хорошо, я напомню тебе об этом."); return;
         }
 
@@ -296,8 +315,8 @@ try {
                         if($('inp').value.trim()){
                             var el=0; $('status').classList.add('waiting'); $('orb').classList.add('waiting-timer');
                             S.autoSendTimer = setInterval(()=>{
-                                el+=0.1; var cl=(S.pauseTime-el).
-                                  if(el >= S.pauseTime){ clearInterval(S.autoSendTimer); S.autoSendTimer=null; $('orb').classList.remove('waiting-timer'); $('status').classList.remove('waiting'); snd(); }
+                                el+=0.1; var cl=(S.pauseTime-el).toFixed(1); if(cl<0) cl=0; $('status').textContent=`Жду... (${cl}с)`;
+                                if(el >= S.pauseTime){ clearInterval(S.autoSendTimer); S.autoSendTimer=null; $('orb').classList.remove('waiting-timer'); $('status').classList.remove('waiting'); snd(); }
                             }, 100);
                         } else fR();
                     }
