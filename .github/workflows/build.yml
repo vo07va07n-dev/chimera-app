@@ -6,16 +6,8 @@ on:
         description: 'Название приложения'
         required: true
         default: 'Chimera'
-      appDescription:
-        description: 'Описание приложения'
-        required: false
-        default: 'Голосовой ИИ-ассистент'
-      appId:
-        description: 'ID пакета'
-        required: true
-        default: 'com.chimera.app'
       appVersion:
-        description: 'Версия (например: 1.0.0)'
+        description: 'Версия'
         required: true
         default: '1.0.0'
 
@@ -35,38 +27,32 @@ jobs:
         with:
           node-version: 24
 
-      # 🔥 ВНЕДРЯЕМ КЛЮЧ ИЗ СЕКРЕТОВ GITHUB В HTML 🔥
+      # Внедряем ключ через простую замену (самый надежный способ)
       - name: Inject API Key
         run: |
-          node -e "
-            const fs = require('fs');
-            const path = 'www/index.html';
-            let html = fs.readFileSync(path, 'utf8');
-            html = html.replace('__GROQ_API_KEY__', '${{ secrets.GROQ_API_KEY }}');
-            fs.writeFileSync(path, html);
-          "
+          if [ -f "www/index.html" ]; then
+            sed -i 's/__GROQ_API_KEY__/${{ secrets.GROQ_API_KEY }}/g' www/index.html
+          fi
           
       - name: Установка зависимостей
         run: npm install
         
       - name: Настройка Capacitor
         run: |
-          node -e "
-            let c = require('./capacitor.config.json'); 
-            c.appName = '${{ github.event.inputs.appName }}'; 
-            c.appId = '${{ github.event.inputs.appId }}'; 
-            require('fs').writeFileSync('./capacitor.config.json', JSON.stringify(c, null, 2));
-          "
+          node -e "let c=require('./capacitor.config.json'); c.appName='${{ github.event.inputs.appName }}'; c.appId='com.chimera.app'; require('fs').writeFileSync('./capacitor.config.json', JSON.stringify(c, null, 2));"
           
       - name: Генерация Android проекта
         run: npx cap add android
 
-      # 🔥 ВНЕДРЯЕМ ВЕРСИЮ В ANDROID ПРОЕКТ 🔥
-      - name: Update App Version
+      - name: Обновление версии
         run: |
-          cd android
-          sed -i 's/versionCode 1/versionCode 1/g' app/build.gradle
-          sed -i 's/versionName "1.0"/versionName "${{ github.event.inputs.appVersion }}"/g' app/build.gradle
+          node -e "
+            const fs = require('fs');
+            const path = 'android/app/build.gradle';
+            let content = fs.readFileSync(path, 'utf8');
+            content = content.replace(/versionName \".*\"/g, 'versionName \"${{ github.event.inputs.appVersion }}\"');
+            fs.writeFileSync(path, content);
+          "
 
       - name: Применение кастомной иконки
         run: |
@@ -74,7 +60,7 @@ jobs:
           if [ -f icon.png ]; then mv icon.png resources/icon.png; fi
           npx @capacitor/assets generate --android
 
-      - name: Set dark navigation bar
+      - name: Темная навигация
         run: |
           sed -i 's/<style name="AppTheme.NoActionBarLaunch">/<style name="AppTheme.NoActionBarLaunch">\n        <item name="android:navigationBarColor">#05070d<\/item>\n        <item name="android:windowLightNavigationBar">false<\/item>/g' android/app/src/main/res/values/styles.xml
 
@@ -109,5 +95,5 @@ jobs:
       - name: Сохранение готового APK
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ github.event.inputs.appName }}-v${{ github.event.inputs.appVersion }}-APK
+          name: ${{ github.event.inputs.appName }}-v${{ github.event.inputs.appVersion }}
           path: android/app/build/outputs/apk/debug/app-debug.apk
