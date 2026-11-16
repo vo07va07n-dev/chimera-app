@@ -280,7 +280,7 @@ try {
                 var res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
                     method:'POST',
                     headers:{'Content-Type':'application/json', 'Authorization':'Bearer '+S.key},
-                    body: JSON.stringify({ model: 'meta-llama/llama-4-scout-17b-16e-instruct', messages: cm })
+                    body: JSON.stringify({ model: 'qwen/qwen3.8-27b', messages: cm })
                 });
                 var d = await res.json();
                 $('orb').classList.remove('thinking');
