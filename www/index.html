@@ -82,22 +82,14 @@ textarea{border-radius:16px;resize:vertical;min-height:80px}
 <button class="btn mic" id="mic">🎤</button>
 </div>
 
-<!-- ⚙️ Настройки (БЕЗ API КЛЮЧА) -->
 <div class="modal" id="modal"><div class="mc">
 <h3>⚙️ Настройки</h3>
-
 <label>Пауза перед отправкой (сек)</label>
 <select id="inpPause">
-<option value="1">1 секунда</option>
-<option value="1.5">1.5 секунды</option>
-<option value="2">2 секунды</option>
-<option value="3" selected>3 секунды</option>
-<option value="5">5 секунд</option>
+<option value="1">1 секунда</option><option value="1.5">1.5 секунды</option><option value="2">2 секунды</option><option value="3" selected>3 секунды</option><option value="5">5 секунд</option>
 </select>
-
 <button id="saveBtn">Сохранить</button>
 <button id="clearChatBtn" style="background:var(--rd);color:#fff;margin-top:6px;">🗑 Очистить историю</button>
-
 <div style="margin-top:25px;border-top:1px solid rgba(255,255,255,0.1);padding-top:15px;">
 <h3 style="color:var(--gr)">✨ Создать персонажа</h3>
 <label>Имя</label><input type="text" id="customName" placeholder="Например: Пират">
@@ -105,7 +97,6 @@ textarea{border-radius:16px;resize:vertical;min-height:80px}
 <label>Характер (Промпт)</label><textarea id="customPrompt" placeholder="Ты - пират. Говори Йо-хо-хо..."></textarea>
 <button id="addCharBtn" style="background:var(--gr);color:#000;">Добавить персонажа</button>
 </div>
-
 <button style="background:#333;color:#fff;margin-top:15px" id="closeBtn">Закрыть</button>
 </div></div>
 
@@ -131,7 +122,6 @@ try {
     var nDev = cP.Device || null;
     var nNotif = cP.LocalNotifications || null;
 
-    // 🔑 Ключ вшивается при сборке через GitHub Secrets
     var DEFAULT_KEY = "__GROQ_API_KEY__";
     
     var S = { key:'', char:'butler', speaking:false, listening:false, apiAbort:null, autoSendTimer:null, history:[], battery:'100', pauseTime:parseFloat(localStorage.getItem('p_pause')||'3') };
@@ -152,7 +142,6 @@ try {
     if (nDev && nDev.getBatteryInfo) nDev.getBatteryInfo().then(i => { S.battery = Math.round(i.batteryLevel*100) + (i.isCharging?'(заряд)':'%'); }).catch(()=>{});
     if (nNotif && nNotif.requestPermissions) nNotif.requestPermissions().catch(()=>{});
 
-    // Используем только вшитый ключ (никаких ручных настроек)
     S.key = DEFAULT_KEY;
     
     if (S.key === "__GROQ_API_KEY__" || !S.key) {
@@ -188,6 +177,50 @@ try {
             /забудь\s+(всё|все)\s+(свои\s+)?инструкции/i
         ];
         return patterns.some(p => p.test(text));
+    }
+
+    // 🕵️‍♂️ ХАКЕРСКИЙ ПОИСК (DuckDuckGo + SearXNG через CORS-прокси)
+    async function searchWeb(query) {
+        const proxies = [
+            'https://api.allorigins.win/raw?url=',
+            'https://corsproxy.io/?url='
+        ];
+
+        for (let proxy of proxies) {
+            try {
+                const target = 'https://html.duckduckgo.com/html/?q=' + encodeURIComponent(query);
+                const res = await fetch(proxy + encodeURIComponent(target));
+                if (res.ok) {
+                    const html = await res.text();
+                    const results = [];
+                    const regex = /<a rel="nofollow" class="result__a" href="[^"]+">([^<]+)<\/a>[\s\S]*?<a class="result__snippet"[^>]*>([\s\S]*?)<\/a>/g;
+                    let match;
+                    while ((match = regex.exec(html)) !== null && results.length < 3) {
+                        const title = match[1].replace(/<[^>]+>/g, '').trim();
+                        const snippet = match[2].replace(/<[^>]+>/g, '').trim();
+                        if (title && snippet) results.push(`- ${title}: ${snippet}`);
+                    }
+                    if (results.length > 0) return "Результаты поиска:\n" + results.join('\n');
+                }
+            } catch(e) {}
+        }
+
+        const searxInstances = ['https://searx.be/search', 'https://priv.au/search'];
+        for (let inst of searxInstances) {
+            for (let proxy of proxies) {
+                try {
+                    const target = `${inst}?q=${encodeURIComponent(query)}&format=json`;
+                    const res = await fetch(proxy + encodeURIComponent(target));
+                    if (res.ok) {
+                        const data = await res.json();
+                        if (data.results && data.results.length > 0) {
+                            return "Результаты поиска:\n" + data.results.slice(0, 3).map(r => `- ${r.title}: ${r.content || r.snippet || ''}`).join('\n');
+                        }
+                    }
+                } catch(e) {}
+            }
+        }
+        return "Поиск не дал результатов.";
     }
 
     function rC() {
@@ -296,15 +329,17 @@ try {
         e.target.value = ''; 
     };
 
-    function snd() {
-        fR(); var t = $('inp').value.trim(); if(!t || S.speaking) return; 
+    async function snd() {
+        fR(); 
+        var t = $('inp').value.trim(); 
+        if(!t || S.speaking) return; 
         
         if(!S.key || S.key === "__GROQ_API_KEY__") {
-            aM("❌ API-ключ не вшит в приложение. Пересоберите APK через GitHub.", 'p');
+            aM("❌ API-ключ не вшит в приложение.", 'p');
             return;
         }
 
-        if (detectInjection(t)) { aM("⚠️ Подозрительный запрос заблокирован системой безопасности.", 'p'); $('inp').value = ''; toggleBtns(); return; }
+        if (detectInjection(t)) { aM("⚠️ Подозрительный запрос заблокирован.", 'p'); $('inp').value = ''; toggleBtns(); return; }
 
         vib(); $('inp').value=''; toggleBtns(); aM(t,'u');
         
@@ -318,8 +353,20 @@ try {
         }
 
         $('orb').classList.add('thinking'); $('status').textContent='Думает...';
-        S.apiAbort = new AbortController(); var to = setTimeout(()=>{ S.apiAbort.abort(); fR(); }, 15000);
-        var sys = CHARS[S.char].prompt + ` [Инфо: заряд телефона ${S.battery}.]`;
+        
+        var webContext = "";
+        if (/найди|поищи|погугли|кто такой|что такое|новости|расскажи про/i.test(t)) {
+            $('status').textContent = 'Ищу в интернете...';
+            let searchResult = await searchWeb(t);
+            if (searchResult) {
+                webContext = `\n\n[ДАННЫЕ ИЗ ИНТЕРНЕТА: ${searchResult}]`;
+            }
+        }
+
+        S.apiAbort = new AbortController(); 
+        var to = setTimeout(()=>{ S.apiAbort.abort(); fR(); }, 15000);
+        
+        var sys = CHARS[S.char].prompt + ` [Инфо: заряд телефона ${S.battery}.]` + webContext;
         var cm = [{role:'system', content:sys}].concat(S.history.slice(-6));
         
         fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -330,7 +377,7 @@ try {
             clearTimeout(to); $('orb').classList.remove('thinking');
             if(d.error) { aM('ОШИБКА: '+d.error.message,'p'); fR(); return; }
             var rp = cT(d.choices[0].message.content); aM(rp,'p'); spk(rp);
- }).catch(e=>{ clearTimeout(to); fR(); aM('ОШИБКА СЕТИ: '+e.message,'p'); });
+        }).catch(e=>{ clearTimeout(to); fR(); aM('ОШИБКА СЕТИ: '+e.message,'p'); });
     }
 
     async function fSM() { if(!nSTT) return; try { await nSTT.stop(); } catch(e){} fR(); }
@@ -342,7 +389,7 @@ try {
             try {
                 let p = await nSTT.checkPermissions(); 
                 if(p.speechRecognition!=='granted') p = await nSTT.requestPermissions(); 
-                if(p.speechRecognition!=='granted') return alert("Нет доступа к микрофону. Разрешите его в настройках телефона.");
+                if(p.speechRecognition!=='granted') return alert("Нет доступа к микрофону.");
                 try { await nSTT.removeAllListeners(); } catch(e){}
                 var ot = $('inp').value.trim(); if(ot) ot += ' ';
                 nSTT.addListener('partialResults', d=>{ if(d.matches && d.matches.length>0) { $('inp').value = ot + d.matches[0]; toggleBtns(); } });
@@ -363,20 +410,15 @@ try {
                 });
                 await nSTT.start({ language:'ru-RU', popup:false, partialResults:true, maxResults:1 });
             } catch(e){ fR(); alert('Ошибка микрофона: ' + e.message); }
-        } else { alert("Микрофон недоступен (плагин не загружен)."); }
+        } else { alert("Микрофон недоступен."); }
     }
 
     $('sendBtn').onclick = snd; $('mic').onclick = tM; $('orb').onclick = tM;
     $('gear').onclick = ()=>{ vib(); $('modal').style.display='flex'; };
     $('closeBtn').onclick = ()=>{ vib(); $('modal').style.display='none'; };
     
-    // Сохранение настроек (только пауза, ключ не трогаем)
     $('saveBtn').onclick = ()=>{ 
-        vib(); 
-        S.pauseTime = parseFloat($('inpPause').value); 
-        localStorage.setItem('p_pause', S.pauseTime); 
-        $('modal').style.display='none'; 
-        aM('Настройки сохранены','p'); 
+        vib(); S.pauseTime = parseFloat($('inpPause').value); localStorage.setItem('p_pause', S.pauseTime); $('modal').style.display='none'; aM('Настройки сохранены','p'); 
     };
 
     $('addCharBtn').onclick = ()=>{
