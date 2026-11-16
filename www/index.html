@@ -82,16 +82,22 @@ textarea{border-radius:16px;resize:vertical;min-height:80px}
 <button class="btn mic" id="mic">🎤</button>
 </div>
 
+<!-- ⚙️ Настройки (БЕЗ API КЛЮЧА) -->
 <div class="modal" id="modal"><div class="mc">
 <h3>⚙️ Настройки</h3>
-<label>API Ключ Groq</label>
-<input type="password" id="inpKey" placeholder="gsk_...">
+
 <label>Пауза перед отправкой (сек)</label>
 <select id="inpPause">
-<option value="1">1 секунда</option><option value="1.5">1.5 секунды</option><option value="2">2 секунды</option><option value="3" selected>3 секунды</option><option value="5">5 секунд</option>
+<option value="1">1 секунда</option>
+<option value="1.5">1.5 секунды</option>
+<option value="2">2 секунды</option>
+<option value="3" selected>3 секунды</option>
+<option value="5">5 секунд</option>
 </select>
+
 <button id="saveBtn">Сохранить</button>
 <button id="clearChatBtn" style="background:var(--rd);color:#fff;margin-top:6px;">🗑 Очистить историю</button>
+
 <div style="margin-top:25px;border-top:1px solid rgba(255,255,255,0.1);padding-top:15px;">
 <h3 style="color:var(--gr)">✨ Создать персонажа</h3>
 <label>Имя</label><input type="text" id="customName" placeholder="Например: Пират">
@@ -99,6 +105,7 @@ textarea{border-radius:16px;resize:vertical;min-height:80px}
 <label>Характер (Промпт)</label><textarea id="customPrompt" placeholder="Ты - пират. Говори Йо-хо-хо..."></textarea>
 <button id="addCharBtn" style="background:var(--gr);color:#000;">Добавить персонажа</button>
 </div>
+
 <button style="background:#333;color:#fff;margin-top:15px" id="closeBtn">Закрыть</button>
 </div></div>
 
@@ -124,7 +131,7 @@ try {
     var nDev = cP.Device || null;
     var nNotif = cP.LocalNotifications || null;
 
-    // 🔥 ЗАГЛУШКА КЛЮЧА (заменяется при сборке в GitHub Actions)
+    // 🔑 Ключ вшивается при сборке через GitHub Secrets
     var DEFAULT_KEY = "__GROQ_API_KEY__";
     
     var S = { key:'', char:'butler', speaking:false, listening:false, apiAbort:null, autoSendTimer:null, history:[], battery:'100', pauseTime:parseFloat(localStorage.getItem('p_pause')||'3') };
@@ -145,16 +152,12 @@ try {
     if (nDev && nDev.getBatteryInfo) nDev.getBatteryInfo().then(i => { S.battery = Math.round(i.batteryLevel*100) + (i.isCharging?'(заряд)':'%'); }).catch(()=>{});
     if (nNotif && nNotif.requestPermissions) nNotif.requestPermissions().catch(()=>{});
 
-    function sK(k) { try { localStorage.setItem('p_k', k); } catch(e){} }
-    function lK() { try { return localStorage.getItem('p_k') || ''; } catch(e){ return ''; } }
+    // Используем только вшитый ключ (никаких ручных настроек)
+    S.key = DEFAULT_KEY;
     
-    // 🔥 ПРОВЕРКА КЛЮЧА
-    S.key = lK() || DEFAULT_KEY;
     if (S.key === "__GROQ_API_KEY__" || !S.key) {
         document.getElementById('status').textContent = '❌ Ключ не вшит!';
         document.getElementById('status').style.color = 'var(--rd)';
-    } else {
-        if(S.key) $('inpKey').value = S.key;
     }
     if($('inpPause')) $('inpPause').value = S.pauseTime;
 
@@ -232,7 +235,10 @@ try {
     }
     lH();
 
-    setTimeout(() => { if(!nTTS && !('speechSynthesis' in window)) $('status').textContent='❌ Нет TTS'; else if(S.key !== "__GROQ_API_KEY__") $('status').textContent=nTTS?'Готова (Native)':'Готова (Web)'; }, 1000);
+    setTimeout(() => { 
+        if(!nTTS && !('speechSynthesis' in window)) $('status').textContent='❌ Нет TTS'; 
+        else if(S.key !== "__GROQ_API_KEY__") $('status').textContent=nTTS?'Готова (Native)':'Готова (Web)'; 
+    }, 1000);
 
     function fR() {
         S.speaking=false; S.listening=false; clearTimeout(S.autoSendTimer); clearTimeout(window.micTimeout);
@@ -274,7 +280,7 @@ try {
                 var res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
                     method:'POST',
                     headers:{'Content-Type':'application/json', 'Authorization':'Bearer '+S.key},
-                    body: JSON.stringify({ model: 'llama-3.2-11b-vision-preview', messages: cm })
+                    body: JSON.stringify({ model: 'meta-llama/llama-4-scout-17b-16e-instruct', messages: cm })
                 });
                 var d = await res.json();
                 $('orb').classList.remove('thinking');
@@ -294,7 +300,7 @@ try {
         fR(); var t = $('inp').value.trim(); if(!t || S.speaking) return; 
         
         if(!S.key || S.key === "__GROQ_API_KEY__") {
-            aM("❌ API-ключ не найден. Пожалуйста, введите его в настройках ⚙️.", 'p');
+            aM("❌ API-ключ не вшит в приложение. Пересоберите APK через GitHub.", 'p');
             return;
         }
 
@@ -314,8 +320,6 @@ try {
         $('orb').classList.add('thinking'); $('status').textContent='Думает...';
         S.apiAbort = new AbortController(); var to = setTimeout(()=>{ S.apiAbort.abort(); fR(); }, 15000);
         var sys = CHARS[S.char].prompt + ` [Инфо: заряд телефона ${S.battery}.]`;
-        
-        // 🔥 ИСПРАВЛЕНО: Убрано дублирование текущего сообщения t
         var cm = [{role:'system', content:sys}].concat(S.history.slice(-6));
         
         fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -326,7 +330,7 @@ try {
             clearTimeout(to); $('orb').classList.remove('thinking');
             if(d.error) { aM('ОШИБКА: '+d.error.message,'p'); fR(); return; }
             var rp = cT(d.choices[0].message.content); aM(rp,'p'); spk(rp);
-        }).catch(e=>{ clearTimeout(to); fR(); aM('ОШИБКА СЕТИ: '+e.message,'p'); });
+ }).catch(e=>{ clearTimeout(to); fR(); aM('ОШИБКА СЕТИ: '+e.message,'p'); });
     }
 
     async function fSM() { if(!nSTT) return; try { await nSTT.stop(); } catch(e){} fR(); }
@@ -365,7 +369,15 @@ try {
     $('sendBtn').onclick = snd; $('mic').onclick = tM; $('orb').onclick = tM;
     $('gear').onclick = ()=>{ vib(); $('modal').style.display='flex'; };
     $('closeBtn').onclick = ()=>{ vib(); $('modal').style.display='none'; };
-    $('saveBtn').onclick = ()=>{ vib(); S.key = $('inpKey').value.trim(); S.pauseTime = parseFloat($('inpPause').value); sK(S.key); localStorage.setItem('p_pause', S.pauseTime); $('modal').style.display='none'; aM('Настройки сохранены','p'); };
+    
+    // Сохранение настроек (только пауза, ключ не трогаем)
+    $('saveBtn').onclick = ()=>{ 
+        vib(); 
+        S.pauseTime = parseFloat($('inpPause').value); 
+        localStorage.setItem('p_pause', S.pauseTime); 
+        $('modal').style.display='none'; 
+        aM('Настройки сохранены','p'); 
+    };
 
     $('addCharBtn').onclick = ()=>{
         vib(); var n = $('customName').value.trim(), em = $('customEmoji').value.trim()||'🤖', pr = $('customPrompt').value.trim();
@@ -388,7 +400,8 @@ try {
         $('log-box').innerHTML='> ✅ Система сброшена.\n'; $('log-box').style.display='block';
     };
     $('testApiBtn').onclick = async ()=>{
-        if(!S.key) return alert("Введите ключ!"); var b=$('log-box'); b.style.display='block'; b.innerHTML='> Проверка API...\n';
+        if(!S.key || S.key === "__GROQ_API_KEY__") return alert("Ключ не вшит!");
+        var b=$('log-box'); b.style.display='block'; b.innerHTML='> Проверка API...\n';
         try{ var r = await fetch('https://api.groq.com/openai/v1/models',{headers:{'Authorization':'Bearer '+S.key}}); b.innerHTML+= r.ok ? '> ✅ API работает.\n' : `> ❌ Ошибка: ${r.status}\n`; }catch(e){ b.innerHTML+="> ❌ Сеть: "+e.message+"\n"; }
     };
     $('testTtsBtn').onclick = async ()=>{
