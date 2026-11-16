@@ -179,13 +179,35 @@ try {
         return patterns.some(p => p.test(text));
     }
 
-    // 🕵️‍♂️ ХАКЕРСКИЙ ПОИСК (DuckDuckGo + SearXNG через CORS-прокси)
-    async function searchWeb(query) {
-        const proxies = [
-            'https://api.allorigins.win/raw?url=',
-            'https://corsproxy.io/?url='
-        ];
+    // ☀️ ПОГОДА В РЕАЛЬНОМ ВРЕМЕНИ
+    async function getWeather() {
+        try {
+            let res = await fetch('https://wttr.in/?format=j1');
+            if (!res.ok) return "";
+            let data = await res.json();
+            let cur = data.current_condition[0];
+            let area = data.nearest_area[0].areaName[0].value;
+            return `В ${area} сейчас ${cur.temp_C}°C, ${cur.weatherDesc[0].value}, ветер ${cur.windspeedKmph} км/ч.`;
+        } catch(e) { return ""; }
+    }
 
+    // 🕵️‍♂️ ПОИСК (DuckDuckGo + SearXNG)
+    async function searchWeb(query) {
+        // 1. Прямой запрос к DuckDuckGo (если поддерживает CORS)
+        try {
+            let res = await fetch(`https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_html=1&skip_disambig=1`);
+            if (res.ok) {
+                let data = await res.json();
+                if (data.AbstractText) return data.AbstractText;
+                if (data.RelatedTopics && data.RelatedTopics.length > 0) {
+                    let t = data.RelatedTopics.map(x => x.Text).filter(x => x).slice(0,3).join(" ");
+                    if (t) return t;
+                }
+            }
+        } catch(e) {}
+
+        // 2. Парсинг HTML через CORS-прокси
+        const proxies = ['https://api.allorigins.win/raw?url=', 'https://corsproxy.io/?url='];
         for (let proxy of proxies) {
             try {
                 const target = 'https://html.duckduckgo.com/html/?q=' + encodeURIComponent(query);
@@ -205,6 +227,7 @@ try {
             } catch(e) {}
         }
 
+        // 3. SearXNG (JSON)
         const searxInstances = ['https://searx.be/search', 'https://priv.au/search'];
         for (let inst of searxInstances) {
             for (let proxy of proxies) {
@@ -220,7 +243,7 @@ try {
                 } catch(e) {}
             }
         }
-        return "Поиск не дал результатов.";
+        return "";
     }
 
     function rC() {
@@ -354,19 +377,34 @@ try {
 
         $('orb').classList.add('thinking'); $('status').textContent='Думает...';
         
-        var webContext = "";
-        if (/найди|поищи|погугли|кто такой|что такое|новости|расскажи про/i.test(t)) {
+        var contextData = "";
+        
+        // Погода
+        if (/погод|температур|дожд|снег|ветер|жарко|холодно/i.test(t)) {
+            $('status').textContent = 'Узнаю погоду...';
+            let w = await getWeather();
+            if (w) contextData += `\n\n[АКТУАЛЬНАЯ ПОГОДА: ${w}]`;
+        }
+        
+        // Поиск
+        if (/найди|поищи|погугли|кто такой|что такое|новости|расскажи про|курс/i.test(t)) {
             $('status').textContent = 'Ищу в интернете...';
             let searchResult = await searchWeb(t);
             if (searchResult) {
-                webContext = `\n\n[ДАННЫЕ ИЗ ИНТЕРНЕТА: ${searchResult}]`;
+                contextData += `\n\n[РЕЗУЛЬТАТЫ ПОИСКА В ИНТЕРНЕТЕ: ${searchResult}]`;
             }
         }
 
         S.apiAbort = new AbortController(); 
-        var to = setTimeout(()=>{ S.apiAbort.abort(); fR(); }, 15000);
+        var to = setTimeout(()=>{ S.apiAbort.abort(); fR(); }, 20000);
         
-        var sys = CHARS[S.char].prompt + ` [Инфо: заряд телефона ${S.battery}.]` + webContext;
+        var sys = CHARS[S.char].prompt + ` [Инфо: заряд телефона ${S.battery}.]` + contextData;
+        
+        // Заставляем ИИ использовать данные
+        if (contextData) {
+            sys += "\n\nВНИМАНИЕ: Я передал тебе данные из интернета. ОБЯЗАТЕЛЬНО используй их в ответе. Запрещено говорить, что у тебя нет доступа к информации!";
+        }
+
         var cm = [{role:'system', content:sys}].concat(S.history.slice(-6));
         
         fetch('https://api.groq.com/openai/v1/chat/completions', {
