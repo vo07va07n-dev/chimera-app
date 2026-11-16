@@ -54,6 +54,14 @@ textarea{border-radius:16px;resize:vertical;min-height:80px}
 .mc button{width:100%;padding:12px;margin-top:8px;border-radius:12px;border:none;background:var(--cy);color:#000;font-weight:bold;font-size:14px;transition:.2s}
 .mc button:active{transform:scale(0.98)}
 #log-box{background:#000;border:1px solid #333;padding:10px;border-radius:8px;font-family:monospace;font-size:11px;color:var(--gr);margin-top:15px;white-space:pre-wrap;max-height:150px;overflow-y:auto;display:none}
+
+/* 🔥 СТИЛИ ДЛЯ РЕДАКТОРА ФОТО (КРОП) */
+#cropModal { display: none; position: fixed; inset: 0; background: #000; z-index: 200; flex-direction: column; }
+#cropContainer { flex: 1; position: relative; overflow: hidden; display: flex; justify-content: center; align-items: center; background: #05070d; }
+#cropImage { max-width: 100%; max-height: 100%; object-fit: contain; pointer-events: none; }
+#cropBox { position: absolute; border: 2px dashed var(--cy); background: rgba(0,229,255,0.2); pointer-events: none; }
+#cropControls { padding: 20px; display: flex; justify-content: center; gap: 10px; background: #0a1020; border-top: 1px solid #333; }
+#cropControls button { width: auto; padding: 12px 24px; border-radius: 12px; font-weight: bold; border: none; }
 </style>
 </head>
 <body>
@@ -80,6 +88,18 @@ textarea{border-radius:16px;resize:vertical;min-height:80px}
 <input type="file" id="camFallback" accept="image/*" capture="environment" style="display:none;">
 <button class="btn cam" id="camBtn">📷</button>
 <button class="btn mic" id="mic">🎤</button>
+</div>
+
+<!-- 🔥 МОДАЛКА РЕДАКТОРА ФОТО -->
+<div id="cropModal">
+    <div id="cropContainer">
+        <img id="cropImage" alt="crop">
+        <div id="cropBox"></div>
+    </div>
+    <div id="cropControls">
+        <button id="cropCancelBtn" style="background: #333; color: #fff;">Отмена</button>
+        <button id="cropDoneBtn" style="background: var(--cy); color: #000;">Обрезать и решить</button>
+    </div>
 </div>
 
 <div class="modal" id="modal"><div class="mc">
@@ -179,7 +199,6 @@ try {
         return patterns.some(p => p.test(text));
     }
 
-    // ☀️ ПОГОДА В РЕАЛЬНОМ ВРЕМЕНИ
     async function getWeather() {
         try {
             let res = await fetch('https://wttr.in/?format=j1');
@@ -191,9 +210,7 @@ try {
         } catch(e) { return ""; }
     }
 
-    // 🕵️‍♂️ ПОИСК (DuckDuckGo + SearXNG)
     async function searchWeb(query) {
-        // 1. Прямой запрос к DuckDuckGo (если поддерживает CORS)
         try {
             let res = await fetch(`https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_html=1&skip_disambig=1`);
             if (res.ok) {
@@ -206,7 +223,6 @@ try {
             }
         } catch(e) {}
 
-        // 2. Парсинг HTML через CORS-прокси
         const proxies = ['https://api.allorigins.win/raw?url=', 'https://corsproxy.io/?url='];
         for (let proxy of proxies) {
             try {
@@ -227,7 +243,6 @@ try {
             } catch(e) {}
         }
 
-        // 3. SearXNG (JSON)
         const searxInstances = ['https://searx.be/search', 'https://priv.au/search'];
         for (let inst of searxInstances) {
             for (let proxy of proxies) {
@@ -310,48 +325,172 @@ try {
         try {
             if(nTTS) await nTTS.speak({text:c, lang:'ru-RU', rate:CHARS[S.char].rate, pitch:CHARS[S.char].pitch});
             else if('speechSynthesis' in window) {
-                window.speechSynthesis.cancel(); var u = new SpeechSynthesisUtterance(c);
-                u.lang='ru-RU'; u.rate=CHARS[S.char].rate; u.pitch=CHARS[S.char].pitch;
                 window.speechSynthesis.speak(u); await new Promise(r=>{u.onend=r; u.onerror=r;});
             }
         } catch(e){} finally { clearTimeout(st); fR(); }
     }
 
+    // ==========================================
+    // 📷 РЕДАКТОР ФОТО (КРОП)
+    // ==========================================
+    var cropper = { active: false, startX: 0, startY: 0 };
+
     $('camBtn').onclick = () => { vib(); $('camFallback').click(); };
 
-    $('camFallback').onchange = async (e) => {
+    $('camFallback').onchange = (e) => {
         const file = e.target.files[0];
         if (!file) return;
         const reader = new FileReader();
-        reader.onload = async (ev) => {
-            const base64Image = ev.target.result;
-            aB("📷 [Фото отправлено на анализ]", 'u');
-            $('orb').classList.add('thinking'); $('status').textContent='Смотрю фото...';
-            var sys = CHARS[S.char].prompt + " [Инфо: пользователь прислал фото. Опиши его.]";
-            var cm = [
-                { role: 'system', content: sys },
-                { role: 'user', content: [{ type: 'text', text: 'Что на этом фото?' }, { type: 'image_url', image_url: { url: base64Image } }] }
-            ];
-            try {
-                var res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-                    method:'POST',
-                    headers:{'Content-Type':'application/json', 'Authorization':'Bearer '+S.key},
-                    body: JSON.stringify({ model: 'qwen/qwen3.8-27b', messages: cm })
-                });
-                var d = await res.json();
-                $('orb').classList.remove('thinking');
-                if(d.error) { aM('ОШИБКА Vision: ' + d.error.message, 'p'); fR(); return; }
-                var rp = cT(d.choices[0].message.content);
-                aM(rp, 'p'); spk(rp);
-            } catch(e) {
-                $('orb').classList.remove('thinking');
-                aM('ОШИБКА СЕТИ: ' + e.message, 'p'); fR();
-            }
+        reader.onload = (ev) => {
+            $('cropImage').src = ev.target.result;
+            $('cropImage').dataset.original = ev.target.result;
+            $('cropBox').style.display = 'none';
+            $('cropModal').style.display = 'flex';
         };
         reader.readAsDataURL(file);
-        e.target.value = ''; 
+        e.target.value = '';
     };
 
+    const cropContainer = $('cropContainer');
+    cropContainer.addEventListener('touchstart', (e) => {
+        if (!e.touches || e.touches.length === 0) return;
+        const touch = e.touches[0];
+        const rect = cropContainer.getBoundingClientRect();
+        cropper.startX = touch.clientX - rect.left;
+        cropper.startY = touch.clientY - rect.top;
+        cropper.active = true;
+        
+        const box = $('cropBox');
+        box.style.display = 'block';
+        box.style.left = cropper.startX + 'px';
+        box.style.top = cropper.startY + 'px';
+        box.style.width = '0px';
+        box.style.height = '0px';
+    });
+
+    cropContainer.addEventListener('touchmove', (e) => {
+        if (!cropper.active) return;
+        e.preventDefault();
+        const touch = e.touches[0];
+        const rect = cropContainer.getBoundingClientRect();
+        const currentX = touch.clientX - rect.left;
+        const currentY = touch.clientY - rect.top;
+        
+        const box = $('cropBox');
+        box.style.width = Math.abs(currentX - cropper.startX) + 'px';
+        box.style.height = Math.abs(currentY - cropper.startY) + 'px';
+        box.style.left = Math.min(currentX, cropper.startX) + 'px';
+        box.style.top = Math.min(currentY, cropper.startY) + 'px';
+    }, { passive: false });
+
+    cropContainer.addEventListener('touchend', () => { cropper.active = false; });
+
+    $('cropCancelBtn').onclick = () => { $('cropModal').style.display = 'none'; };
+
+    $('cropDoneBtn').onclick = () => {
+        const img = $('cropImage');
+        const box = $('cropBox');
+        const boxRect = box.getBoundingClientRect();
+        const imgRect = img.getBoundingClientRect();
+        
+        // Если область выделена слишком маленькая, берем оригинал
+        if (box.style.display === 'none' || boxRect.width < 20 || boxRect.height < 20) {
+            $('cropModal').style.display = 'none';
+            processMathImage(img.dataset.original);
+            return;
+        }
+        
+        const canvas = document.createElement('canvas');
+        const scaleX = img.naturalWidth / imgRect.width;
+        const scaleY = img.naturalHeight / imgRect.height;
+        
+        canvas.width = boxRect.width * scaleX;
+        canvas.height = boxRect.height * scaleY;
+        
+        const ctx = canvas.getContext('2d');
+        const cropX = (boxRect.left - imgRect.left) * scaleX;
+        const cropY = (boxRect.top - imgRect.top) * scaleY;
+        
+        ctx.drawImage(img, cropX, cropY, canvas.width, canvas.height, 0, 0, canvas.width, canvas.height);
+        
+        $('cropModal').style.display = 'none';
+        processMathImage(canvas.toDataURL('image/jpeg', 0.9));
+    };
+
+    // ==========================================
+    // 🧠 ОБРАБОТКА КАРТИНКИ (OCR -> РЕШЕНИЕ)
+    // ==========================================
+    async function processMathImage(base64Image) {
+        aB("📷 [Фото отправлено на анализ]", 'u');
+        $('orb').classList.add('thinking'); 
+        $('status').textContent='Сканирую...';
+        
+        var visionPrompt = `Ты — идеальный OCR-сканер математики. Твоя задача — переписать ВСЕ формулы и уравнения с фото в виде обычного текста. 
+        Правила:
+        1. Дроби пиши строго так: "числитель/знаменатель". Например: 1/10, 1/2, 2/5.
+        2. Если есть знак равно (=), пиши его как =.
+        3. НЕ ОПИСЫВАЙ картинку словами (не пиши "на фото изображено...", "это страница учебника..."). 
+        4. Просто выдай чистый математический текст того, что видишь. Если есть номера задач, пиши их.
+        Пример вывода: "№506: 1/10 + 1/2 + 2/5 = ... №507: x + 7/12 = 3/4"`;
+        
+        var cm1 = [
+            { role: 'system', content: visionPrompt },
+            { role: 'user', content: [
+                { type: 'text', text: 'Выдай только математический текст с этого фото.' }, 
+                { type: 'image_url', image_url: { url: base64Image } }
+            ]}
+        ];
+
+        try {
+            var res1 = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+                method:'POST',
+                headers:{'Content-Type':'application/json', 'Authorization':'Bearer '+S.key},
+                body: JSON.stringify({ model: 'qwen/qwen3.8-27b', messages: cm1 })
+            });
+            var d1 = await res1.json();
+            
+            if(d1.error) { aM('ОШИБКА Vision: ' + d1.error.message, 'p'); fR(); return; }
+            
+            var extractedText = cT(d1.choices[0].message.content);
+            
+            aM(`📝 Распознано с фото:\n${extractedText}`, 'p', false);
+            
+            $('status').textContent='Решаю...';
+            
+            var solvePrompt = CHARS[S.char].prompt + `\n\nПользователь прислал фото с математикой. OCR-сканер распознал следующий текст:\n"${extractedText}"\n\nТвоя задача: реши эти примеры и уравнения пошагово, как в учебнике. Покажи процесс решения (приведение к общему знаменателю, перенос слагаемых и т.д.) и выдай финальный ответ.`;
+            
+            var cm2 = [
+                { role: 'system', content: solvePrompt }, 
+                { role: 'user', content: 'Реши эти задания.' }
+            ];
+            
+            var res2 = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+                method:'POST',
+                headers:{'Content-Type':'application/json', 'Authorization':'Bearer '+S.key},
+                body: JSON.stringify({ model: 'openai/gpt-oss-120b', messages: cm2 })
+            });
+            var d2 = await res2.json();
+            $('orb').classList.remove('thinking');
+            
+            if(d2.error) { aM('ОШИБКА: ' + d2.error.message, 'p'); fR(); return; }
+            var solution = cT(d2.choices[0].message.content);
+            
+            aM(solution, 'p'); 
+            spk(solution);
+            
+            S.history.push({ role: 'user', content: 'Задание с фото: ' + extractedText });
+            S.history.push({ role: 'assistant', content: solution });
+            saveHistory();
+
+        } catch(e) {
+            $('orb').classList.remove('thinking');
+            aM('ОШИБКА СЕТИ: ' + e.message, 'p'); fR();
+        }
+    }
+
+    // ==========================================
+    // 💬 ОБЫЧНАЯ ОТПРАВКА ТЕКСТА
+    // ==========================================
     async function snd() {
         fR(); 
         var t = $('inp').value.trim(); 
@@ -379,19 +518,17 @@ try {
         
         var contextData = "";
         
-        // Погода
         if (/погод|температур|дожд|снег|ветер|жарко|холодно/i.test(t)) {
             $('status').textContent = 'Узнаю погоду...';
             let w = await getWeather();
             if (w) contextData += `\n\n[АКТУАЛЬНАЯ ПОГОДА: ${w}]`;
         }
         
-        // Поиск
         if (/найди|поищи|погугли|кто такой|что такое|новости|расскажи про|курс/i.test(t)) {
             $('status').textContent = 'Ищу в интернете...';
             let searchResult = await searchWeb(t);
             if (searchResult) {
-                contextData += `\n\n[РЕЗУЛЬТАТЫ ПОИСКА В ИНТЕРНЕТЕ: ${searchResult}]`;
+                contextData += `\n\n[РЕЗУЛЬТАТЫ ПОИСКА: ${searchResult}]`;
             }
         }
 
@@ -400,7 +537,6 @@ try {
         
         var sys = CHARS[S.char].prompt + ` [Инфо: заряд телефона ${S.battery}.]` + contextData;
         
-        // Заставляем ИИ использовать данные
         if (contextData) {
             sys += "\n\nВНИМАНИЕ: Я передал тебе данные из интернета. ОБЯЗАТЕЛЬНО используй их в ответе. Запрещено говорить, что у тебя нет доступа к информации!";
         }
