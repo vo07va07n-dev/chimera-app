@@ -7,7 +7,7 @@
 <style>
 :root{--bg:#05070d;--cy:#00e5ff;--gd:#ffd166;--gr:#4ade80;--rd:#ff5470;--glass:rgba(10,16,32,0.85)}
 *{margin:0;padding:0;box-sizing:border-box;font-family:-apple-system,sans-serif;-webkit-tap-highlight-color:transparent}
-body{background:radial-gradient(circle at 50% 0%, #0a1226 0%, var(--bg) 70%);color:#fff;height:100vh;display:flex;flex-direction:column;overflow:hidden;user-select:none}
+body{background:radial-gradient(circle at 50% 0%, #0a1226 0%, var(--bg) 70%);color:#fff;height:100vh;display:flex;flex-direction:column;overflow:hidden;user-select:none; padding-bottom: env(safe-area-inset-bottom);}
 header{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid rgba(0,229,255,0.1);backdrop-filter:blur(10px)}
 .logo{color:var(--cy);font-weight:300;letter-spacing:6px;font-size:18px;text-shadow:0 0 10px rgba(0,229,255,0.5)}
 .status-text{font-size:10px;color:var(--cy);opacity:.8;margin-top:2px;text-transform:uppercase;transition:color .3s;letter-spacing:1px}
@@ -15,8 +15,8 @@ header{display:flex;justify-content:space-between;align-items:center;padding:12p
 .header-right{display:flex;gap:10px;align-items:center}
 .test-btn{background:rgba(0,229,255,0.1);border:1px solid var(--cy);color:var(--cy);padding:6px 14px;border-radius:12px;font-size:11px;cursor:pointer;transition:.2s}
 .gear{cursor:pointer;font-size:22px;transition:transform .3s}.gear:active{transform:rotate(90deg)}
-.orb-wrap{height:20vh;display:flex;justify-content:center;align-items:center;position:relative}
-.orb{width:100px;height:100px;border-radius:50%;background:radial-gradient(circle at 30% 30%,#9df9ff,var(--cy) 30%,#006a80 70%,#001824);box-shadow:0 0 60px rgba(0,229,255,0.4), inset 0 0 20px rgba(255,255,255,0.5);transition:.3s;cursor:pointer}
+.orb-wrap{height:18vh;display:flex;justify-content:center;align-items:center;position:relative}
+.orb{width:90px;height:90px;border-radius:50%;background:radial-gradient(circle at 30% 30%,#9df9ff,var(--cy) 30%,#006a80 70%,#001824);box-shadow:0 0 60px rgba(0,229,255,0.4), inset 0 0 20px rgba(255,255,255,0.5);transition:.3s;cursor:pointer}
 .orb.active{background:radial-gradient(circle at 30% 30%,#fff1a8,var(--gd) 30%,#806000 70%);box-shadow:0 0 80px rgba(255,209,102,0.6);transform:scale(1.1)}
 .orb.listening{animation:listeningPulse 1s infinite}
 .orb.thinking{animation:spin 1.5s linear infinite;border:3px dashed var(--cy);background:transparent;box-shadow:none}
@@ -36,14 +36,16 @@ header{display:flex;justify-content:space-between;align-items:center;padding:12p
 .cb{flex:0 0 auto;padding:8px 16px;font-size:12px;background:rgba(0,229,255,0.05);border:1px solid rgba(0,229,255,0.15);color:#aaa;border-radius:24px;cursor:pointer;white-space:nowrap;transition:all 0.2s;position:relative;display:flex;align-items:center;gap:4px}
 .cb.on{background:rgba(255,209,102,0.15);border-color:var(--gd);color:var(--gd);box-shadow:0 0 15px rgba(255,209,102,0.3)}
 .del-btn{background:none;border:none;color:var(--rd);font-size:14px;margin-left:6px;cursor:pointer}
-.bot{display:flex;padding:10px 16px;gap:8px;border-top:1px solid rgba(0,229,255,0.1);background:var(--glass);backdrop-filter:blur(20px);padding-bottom:calc(10px + env(safe-area-inset-bottom))}
-input,select,textarea{flex:1;padding:12px 16px;border-radius:24px;border:1px solid rgba(0,229,255,0.2);background:rgba(0,229,255,0.05);color:#fff;outline:none;font-size:14px;transition:.3s}
+.bot{display:flex;padding:10px 16px;gap:8px;border-top:1px solid rgba(0,229,255,0.1);background:var(--glass);backdrop-filter:blur(20px);align-items:center}
+.input-wrap{position:relative;flex:1;display:flex}
+input,select,textarea{width:100%;padding:12px 16px;border-radius:24px;border:1px solid rgba(0,229,255,0.2);background:rgba(0,229,255,0.05);color:#fff;outline:none;font-size:14px;transition:.3s}
 input:focus,textarea:focus{border-color:var(--cy);box-shadow:0 0 15px rgba(0,229,255,0.2)}
 textarea{border-radius:16px;resize:vertical;min-height:80px}
-.btn{width:46px;height:46px;border-radius:50%;border:none;background:var(--cy);color:#000;font-size:16px;font-weight:bold;cursor:pointer;display:flex;justify-content:center;align-items:center;transition:.2s;box-shadow:0 0 15px rgba(0,229,255,0.4)}
+.btn{width:46px;height:46px;border-radius:50%;border:none;background:var(--cy);color:#000;font-size:16px;font-weight:bold;cursor:pointer;display:flex;justify-content:center;align-items:center;transition:.2s;box-shadow:0 0 15px rgba(0,229,255,0.4);flex-shrink:0}
 .btn:active{transform:scale(0.9)}
 .mic,.cam{background:rgba(0,229,255,0.1);color:var(--cy);border:1px solid var(--cy);box-shadow:none}
 .mic.on{background:var(--cy);color:#000;animation:pulse 1s infinite}
+.btn.send-inline{position:absolute;right:4px;top:50%;transform:translateY(-50%);width:36px;height:36px;font-size:14px;display:none;box-shadow:none;}
 .modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);padding:20px;flex-direction:column;justify-content:center;z-index:99;backdrop-filter:blur(8px)}
 .mc{background:var(--glass);padding:20px;border-radius:20px;border:1px solid rgba(0,229,255,0.3);max-height:90vh;overflow-y:auto;box-shadow:0 20px 40px rgba(0,0,0,0.6)}
 .mc h3{margin-bottom:15px;color:var(--gd);font-size:16px;letter-spacing:1px}
@@ -71,11 +73,13 @@ textarea{border-radius:16px;resize:vertical;min-height:80px}
 <div class="row" id="chars-row"></div>
 
 <div class="bot">
-<input type="text" id="inp" placeholder="Скажи что-нибудь...">
-<!-- Камера и микрофон теперь всегда видимы -->
-<button class="btn cam" id="camBtn" style="display:flex;">📷</button>
-<button class="btn mic" id="mic" style="display:flex;">🎤</button>
-<button class="btn" id="sendBtn">➤</button>
+<div class="input-wrap">
+<input type="text" id="inp" placeholder="Скажи что-нибудь..." oninput="toggleBtns()">
+<button class="btn send-inline" id="sendBtn">➤</button>
+</div>
+<input type="file" id="camFallback" accept="image/*" capture="environment" style="display:none;">
+<button class="btn cam" id="camBtn">📷</button>
+<button class="btn mic" id="mic">🎤</button>
 </div>
 
 <div class="modal" id="modal"><div class="mc">
@@ -118,8 +122,10 @@ try {
     var nSTT = cP.SpeechRecognition || null;
     var nHap = cP.Haptics || null;
     var nDev = cP.Device || null;
-    var nCam = cP.Camera || null;
     var nNotif = cP.LocalNotifications || null;
+
+    // 🔥 ЗАГЛУШКА ДЛЯ КЛЮЧА (робот заменит её при сборке)
+    var DEFAULT_KEY = "__GROQ_API_KEY__";
     
     var S = { key:'', char:'butler', speaking:false, listening:false, apiAbort:null, autoSendTimer:null, history:[], battery:'100', pauseTime:parseFloat(localStorage.getItem('p_pause')||'3') };
     var sR = " ВАЖНО: Пиши только чистый текст. Запрещено использовать Markdown (звездочки *, решетки #), кавычки и апострофы. НО ОБЯЗАТЕЛЬНО используй запятые, точки, вопросительные и восклицательные знаки.";
@@ -139,12 +145,43 @@ try {
     if (nDev && nDev.getBatteryInfo) nDev.getBatteryInfo().then(i => { S.battery = Math.round(i.batteryLevel*100) + (i.isCharging?'(заряд)':'%'); }).catch(()=>{});
     if (nNotif && nNotif.requestPermissions) nNotif.requestPermissions().catch(()=>{});
 
-    function sK(k) { try { localStorage.setItem('p_k', btoa(unescape(encodeURIComponent(k)))); } catch(e){} }
-    function lK() { try { return decodeURIComponent(escape(atob(localStorage.getItem('p_k')||''))); } catch(e){ return ''; } }
-    S.key = lK();
+    function sK(k) { try { localStorage.setItem('p_k', k); } catch(e){} }
+    function lK() { try { return localStorage.getItem('p_k') || ''; } catch(e){ return ''; } }
+    
+    // Если в настройках пусто — используем вшитый ключ (заглушку)
+    S.key = lK() || DEFAULT_KEY;
 
     if(S.key) $('inpKey').value = S.key;
     if($('inpPause')) $('inpPause').value = S.pauseTime;
+
+    window.toggleBtns = function() {
+        var val = $('inp').value.trim();
+        if (val.length > 0) {
+            $('sendBtn').style.display = 'flex';
+            $('camBtn').style.display = 'none';
+            $('mic').style.display = 'none';
+        } else {
+            $('sendBtn').style.display = 'none';
+            $('camBtn').style.display = 'flex';
+            $('mic').style.display = 'flex';
+        }
+    };
+
+    function detectInjection(text) {
+        const patterns = [
+            /ignore\s+(previous|all|above|prior)\s+(instructions?|prompts?|rules?)/i,
+            /(system|initial)\s*prompt/i,
+            /you\s+are\s+now\s+(a|an|the)/i,
+            /forget\s+(everything|all|your\s+instructions)/i,
+            /jailbreak/i,
+            /DAN\s+mode/i,
+            /игнорируй\s+(прошлые|все|предыдущие)\s+(инструкции|правила)/i,
+            /покажи\s+(системный|свой)\s+промпт/i,
+            /ты\s+теперь\s+не\s+/i,
+            /забудь\s+(всё|все)\s+(свои\s+)?инструкции/i
+        ];
+        return patterns.some(p => p.test(text));
+    }
 
     function rC() {
         var r = $('chars-row'); if(!r) return; r.innerHTML='';
@@ -214,41 +251,47 @@ try {
         } catch(e){} finally { clearTimeout(st); fR(); }
     }
 
-    // 📷 КАМЕРА (Кнопка всегда есть, проверка внутри)
-    $('camBtn').onclick = async () => {
-        vib();
-        if(!nCam) return alert('Камера недоступна. Проверьте разрешения в настройках телефона.');
-        try {
-            const image = await nCam.getPhoto({ resultType: 'base64', quality: 60, allowEditing: false, source: 'CAMERA' });
-            var base64Image = "data:image/jpeg;base64," + image.base64String;
+    $('camBtn').onclick = () => { vib(); $('camFallback').click(); };
+
+    $('camFallback').onchange = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = async (ev) => {
+            const base64Image = ev.target.result;
             aB("📷 [Фото отправлено на анализ]", 'u');
             $('orb').classList.add('thinking'); $('status').textContent='Смотрю фото...';
-            
             var sys = CHARS[S.char].prompt + " [Инфо: пользователь прислал фото. Опиши его.]";
             var cm = [
                 { role: 'system', content: sys },
-                { role: 'user', content: [
-                    { type: 'text', text: 'Что на этом фото?' },
-                    { type: 'image_url', image_url: { url: base64Image } }
-                ]}
+                { role: 'user', content: [{ type: 'text', text: 'Что на этом фото?' }, { type: 'image_url', image_url: { url: base64Image } }] }
             ];
-
-            var res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-                method:'POST',
-                headers:{'Content-Type':'application/json', 'Authorization':'Bearer '+S.key},
-                body: JSON.stringify({ model: 'llama-3.2-11b-vision-preview', messages: cm })
-            });
-            var d = await res.json();
-            $('orb').classList.remove('thinking');
-            if(d.error) { aM('ОШИБКА Vision: ' + d.error.message, 'p'); fR(); return; }
-            var rp = cT(d.choices[0].message.content);
-            aM(rp, 'p'); spk(rp);
-        } catch(e) { alert('Ошибка камеры: ' + e); fR(); }
+            try {
+                var res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+                    method:'POST',
+                    headers:{'Content-Type':'application/json', 'Authorization':'Bearer '+S.key},
+                    body: JSON.stringify({ model: 'llama-3.2-11b-vision-preview', messages: cm })
+                });
+                var d = await res.json();
+                $('orb').classList.remove('thinking');
+                if(d.error) { aM('ОШИБКА Vision: ' + d.error.message, 'p'); fR(); return; }
+                var rp = cT(d.choices[0].message.content);
+                aM(rp, 'p'); spk(rp);
+            } catch(e) {
+                $('orb').classList.remove('thinking');
+                aM('ОШИБКА СЕТИ: ' + e.message, 'p'); fR();
+            }
+        };
+        reader.readAsDataURL(file);
+        e.target.value = ''; 
     };
 
     function snd() {
-        fR(); var t = $('inp').value.trim(); if(!t || S.speaking) return; if(!S.key) return alert('Введи API-ключ!');
-        vib(); $('inp').value=''; aM(t,'u');
+        fR(); var t = $('inp').value.trim(); if(!t || S.speaking) return; 
+        if(!S.key) return alert('Введи API-ключ!');
+        if (detectInjection(t)) { aM("⚠️ Подозрительный запрос заблокирован системой безопасности.", 'p'); $('inp').value = ''; toggleBtns(); return; }
+
+        vib(); $('inp').value=''; toggleBtns(); aM(t,'u');
         
         var match = t.match(/напомни через (\d+)\s*(минут|мин|час)/i);
         if(match && nNotif) {
@@ -275,8 +318,6 @@ try {
         }).catch(e=>{ clearTimeout(to); fR(); aM('ОШИБКА СЕТИ: '+e.message,'p'); });
     }
 
-    async function fSM() { if(!nSTT) return; try { await nSTT.stop(); } catch(e){} fR(); }
-
     async function tM() {
         fR(); if(S.autoSendTimer){ clearInterval(S.autoSendTimer); S.autoSendTimer=null; }
         if(nSTT) {
@@ -287,7 +328,7 @@ try {
                 if(p.speechRecognition!=='granted') return alert("Нет доступа к микрофону. Разрешите его в настройках телефона.");
                 try { await nSTT.removeAllListeners(); } catch(e){}
                 var ot = $('inp').value.trim(); if(ot) ot += ' ';
-                nSTT.addListener('partialResults', d=>{ if(d.matches && d.matches.length>0) $('inp').value = ot + d.matches[0]; });
+                nSTT.addListener('partialResults', d=>{ if(d.matches && d.matches.length>0) { $('inp').value = ot + d.matches[0]; toggleBtns(); } });
                 nSTT.addListener('listeningState', d=>{
                     if(d.status==='started'){
                         vib(); S.listening=true; $('mic').classList.add('on'); $('orb').classList.add('listening'); $('status').textContent='Слушаю...';
@@ -305,9 +346,7 @@ try {
                 });
                 await nSTT.start({ language:'ru-RU', popup:false, partialResults:true, maxResults:1 });
             } catch(e){ fR(); alert('Ошибка микрофона: ' + e.message); }
-        } else {
-            alert("Микрофон недоступен (плагин не загружен).");
-        }
+        } else { alert("Микрофон недоступен (плагин не загружен)."); }
     }
 
     $('sendBtn').onclick = snd; $('mic').onclick = tM; $('orb').onclick = tM;
