@@ -42,7 +42,7 @@ input:focus,textarea:focus{border-color:var(--cy);box-shadow:0 0 15px rgba(0,229
 textarea{border-radius:16px;resize:vertical;min-height:80px}
 .btn{width:46px;height:46px;border-radius:50%;border:none;background:var(--cy);color:#000;font-size:16px;font-weight:bold;cursor:pointer;display:flex;justify-content:center;align-items:center;transition:.2s;box-shadow:0 0 15px rgba(0,229,255,0.4)}
 .btn:active{transform:scale(0.9)}
-.mic,.cam{background:rgba(0,229,255,0.1);color:var(--cy);border:1px solid var(--cy);display:none;box-shadow:none}
+.mic,.cam{background:rgba(0,229,255,0.1);color:var(--cy);border:1px solid var(--cy);box-shadow:none}
 .mic.on{background:var(--cy);color:#000;animation:pulse 1s infinite}
 .modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);padding:20px;flex-direction:column;justify-content:center;z-index:99;backdrop-filter:blur(8px)}
 .mc{background:var(--glass);padding:20px;border-radius:20px;border:1px solid rgba(0,229,255,0.3);max-height:90vh;overflow-y:auto;box-shadow:0 20px 40px rgba(0,0,0,0.6)}
@@ -72,12 +72,12 @@ textarea{border-radius:16px;resize:vertical;min-height:80px}
 
 <div class="bot">
 <input type="text" id="inp" placeholder="Скажи что-нибудь...">
-<button class="btn cam" id="camBtn">📷</button>
-<button class="btn mic" id="mic">🎤</button>
+<!-- Камера и микрофон теперь всегда видимы -->
+<button class="btn cam" id="camBtn" style="display:flex;">📷</button>
+<button class="btn mic" id="mic" style="display:flex;">🎤</button>
 <button class="btn" id="sendBtn">➤</button>
 </div>
 
-<!-- Настройки -->
 <div class="modal" id="modal"><div class="mc">
 <h3>⚙️ Настройки</h3>
 <label>API Ключ Groq</label>
@@ -98,7 +98,6 @@ textarea{border-radius:16px;resize:vertical;min-height:80px}
 <button style="background:#333;color:#fff;margin-top:15px" id="closeBtn">Закрыть</button>
 </div></div>
 
-<!-- Диагностика -->
 <div class="modal" id="diagModal"><div class="mc">
 <h3>🔧 Диагностика</h3>
 <button id="testApiBtn" style="background:var(--gr);color:#000;">🌐 Тест API</button>
@@ -110,13 +109,11 @@ textarea{border-radius:16px;resize:vertical;min-height:80px}
 </div></div>
 
 <script>
-// 🛡️ БРОНИРОВАННАЯ ИНИЦИАЛИЗАЦИЯ
 try {
     var $ = id => document.getElementById(id);
     var isNat = typeof window.Capacitor !== 'undefined';
     var cP = isNat && window.Capacitor.Plugins ? window.Capacitor.Plugins : {};
     
-    // Безопасно получаем плагины. Если их нет — будет null.
     var nTTS = cP.TextToSpeech || null;
     var nSTT = cP.SpeechRecognition || null;
     var nHap = cP.Haptics || null;
@@ -139,13 +136,8 @@ try {
 
     function vib() { if(nHap) try { nHap.impact({style:'MEDIUM'}); } catch(e){} }
     
-    // Асинхронные вызовы плагинов оборачиваем в try/catch и .catch()
-    if (nDev && nDev.getBatteryInfo) {
-        nDev.getBatteryInfo().then(i => { S.battery = Math.round(i.batteryLevel*100) + (i.isCharging?'(заряд)':'%'); }).catch(()=>{});
-    }
-    if (nNotif && nNotif.requestPermissions) {
-        nNotif.requestPermissions().catch(()=>{});
-    }
+    if (nDev && nDev.getBatteryInfo) nDev.getBatteryInfo().then(i => { S.battery = Math.round(i.batteryLevel*100) + (i.isCharging?'(заряд)':'%'); }).catch(()=>{});
+    if (nNotif && nNotif.requestPermissions) nNotif.requestPermissions().catch(()=>{});
 
     function sK(k) { try { localStorage.setItem('p_k', btoa(unescape(encodeURIComponent(k)))); } catch(e){} }
     function lK() { try { return decodeURIComponent(escape(atob(localStorage.getItem('p_k')||''))); } catch(e){ return ''; } }
@@ -153,12 +145,7 @@ try {
 
     if(S.key) $('inpKey').value = S.key;
     if($('inpPause')) $('inpPause').value = S.pauseTime;
-    
-    // Показываем кнопки, если плагины доступны
-    if(nSTT || window.SpeechRecognition || window.webkitSpeechRecognition) $('mic').style.display='flex';
-    if(nCam) $('camBtn').style.display='flex';
 
-    // РЕНДЕР ПЕРСОНАЖЕЙ
     function rC() {
         var r = $('chars-row'); if(!r) return; r.innerHTML='';
         for(let k in CHARS) {
@@ -169,13 +156,7 @@ try {
             if(k.startsWith('custom_')) {
                 let del = document.createElement('button');
                 del.className = 'del-btn'; del.innerHTML = '✖';
-                del.onclick = (e) => { 
-                    e.stopPropagation(); 
-                    delete CHARS[k]; delete cC[k]; 
-                    localStorage.setItem('p_cc', JSON.stringify(cC)); 
-                    if(S.char===k) S.char='butler'; 
-                    rC(); 
-                };
+                del.onclick = (e) => { e.stopPropagation(); delete CHARS[k]; delete cC[k]; localStorage.setItem('p_cc', JSON.stringify(cC)); if(S.char===k) S.char='butler'; rC(); };
                 b.appendChild(del);
             }
             b.onclick = () => { vib(); sCh(k); };
@@ -233,10 +214,10 @@ try {
         } catch(e){} finally { clearTimeout(st); fR(); }
     }
 
-    // 📷 КАМЕРА
+    // 📷 КАМЕРА (Кнопка всегда есть, проверка внутри)
     $('camBtn').onclick = async () => {
         vib();
-        if(!nCam) return alert('Камера недоступна (плагин не установлен)');
+        if(!nCam) return alert('Камера недоступна. Проверьте разрешения в настройках телефона.');
         try {
             const image = await nCam.getPhoto({ resultType: 'base64', quality: 60, allowEditing: false, source: 'CAMERA' });
             var base64Image = "data:image/jpeg;base64," + image.base64String;
@@ -265,7 +246,6 @@ try {
         } catch(e) { alert('Ошибка камеры: ' + e); fR(); }
     };
 
-    // ⏰ ОТПРАВКА И БУДИЛЬНИКИ
     function snd() {
         fR(); var t = $('inp').value.trim(); if(!t || S.speaking) return; if(!S.key) return alert('Введи API-ключ!');
         vib(); $('inp').value=''; aM(t,'u');
@@ -302,7 +282,9 @@ try {
         if(nSTT) {
             if(S.listening){ await fSM(); return; }
             try {
-                let p = await nSTT.checkPermissions(); if(p.speechRecognition!=='granted') p = await nSTT.requestPermissions(); if(p.speechRecognition!=='granted') return;
+                let p = await nSTT.checkPermissions(); 
+                if(p.speechRecognition!=='granted') p = await nSTT.requestPermissions(); 
+                if(p.speechRecognition!=='granted') return alert("Нет доступа к микрофону. Разрешите его в настройках телефона.");
                 try { await nSTT.removeAllListeners(); } catch(e){}
                 var ot = $('inp').value.trim(); if(ot) ot += ' ';
                 nSTT.addListener('partialResults', d=>{ if(d.matches && d.matches.length>0) $('inp').value = ot + d.matches[0]; });
@@ -322,7 +304,9 @@ try {
                     }
                 });
                 await nSTT.start({ language:'ru-RU', popup:false, partialResults:true, maxResults:1 });
-            } catch(e){ fR(); }
+            } catch(e){ fR(); alert('Ошибка микрофона: ' + e.message); }
+        } else {
+            alert("Микрофон недоступен (плагин не загружен).");
         }
     }
 
@@ -361,7 +345,15 @@ try {
     };
     $('testSttBtn').onclick = async ()=>{
         var b=$('log-box'); b.style.display='block'; b.innerHTML='> Проверка STT...\n';
-        try{ if(nSTT){ await nSTT.start({language:'ru-RU',popup:false}); b.innerHTML+='> 🎤 Микрофон запущен...\n'; setTimeout(async()=>{ await nSTT.stop(); b.innerHTML+='> ✅ STT работает.\n'; },3000); } else b.innerHTML+='> ❌ STT нет.\n'; }catch(e){ b.innerHTML+="> ❌ Ошибка: "+e.message+"\n"; }
+        try{ 
+            if(nSTT){ 
+                let p = await nSTT.checkPermissions();
+                if(p.speechRecognition!=='granted') p = await nSTT.requestPermissions();
+                if(p.speechRecognition!=='granted') { b.innerHTML+='> ❌ Нет разрешения на микрофон.\n'; return; }
+                await nSTT.start({language:'ru-RU',popup:false}); b.innerHTML+='> 🎤 Микрофон запущен...\n'; 
+                setTimeout(async()=>{ await nSTT.stop(); b.innerHTML+='> ✅ STT работает.\n'; },3000); 
+            } else b.innerHTML+='> ❌ STT нет.\n'; 
+        }catch(e){ b.innerHTML+="> ❌ Ошибка: "+e.message+"\n"; }
     };
 } catch(gE) {
     document.getElementById('status').textContent = 'ОШИБКА: ' + gE.message;
