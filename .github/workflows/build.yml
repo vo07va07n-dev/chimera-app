@@ -6,10 +6,18 @@ on:
         description: 'Название приложения'
         required: true
         default: 'Chimera'
+      appDescription:
+        description: 'Описание приложения'
+        required: false
+        default: 'Голосовой ИИ-ассистент'
       appId:
         description: 'ID пакета'
         required: true
         default: 'com.chimera.app'
+      appVersion:
+        description: 'Версия (например: 1.0.0)'
+        required: true
+        default: '1.0.0'
 
 jobs:
   build:
@@ -43,10 +51,22 @@ jobs:
         
       - name: Настройка Capacitor
         run: |
-          node -e "let c=require('./capacitor.config.json'); c.appName='${{ github.event.inputs.appName }}'; c.appId='${{ github.event.inputs.appId }}'; require('fs').writeFileSync('./capacitor.config.json', JSON.stringify(c, null, 2));"
+          node -e "
+            let c = require('./capacitor.config.json'); 
+            c.appName = '${{ github.event.inputs.appName }}'; 
+            c.appId = '${{ github.event.inputs.appId }}'; 
+            require('fs').writeFileSync('./capacitor.config.json', JSON.stringify(c, null, 2));
+          "
           
       - name: Генерация Android проекта
         run: npx cap add android
+
+      # 🔥 ВНЕДРЯЕМ ВЕРСИЮ В ANDROID ПРОЕКТ 🔥
+      - name: Update App Version
+        run: |
+          cd android
+          sed -i 's/versionCode 1/versionCode 1/g' app/build.gradle
+          sed -i 's/versionName "1.0"/versionName "${{ github.event.inputs.appVersion }}"/g' app/build.gradle
 
       - name: Применение кастомной иконки
         run: |
@@ -89,5 +109,5 @@ jobs:
       - name: Сохранение готового APK
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ github.event.inputs.appName }}-APK
+          name: ${{ github.event.inputs.appName }}-v${{ github.event.inputs.appVersion }}-APK
           path: android/app/build/outputs/apk/debug/app-debug.apk
