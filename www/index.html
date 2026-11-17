@@ -643,30 +643,31 @@ try {
 
         vib(); $('inp').value=''; toggleBtns(); aM(t,'u');
 
-        // 🎭 АВТОДИАЛОГ
-        if (/(?:запусти|начни|сделай|устрой)\s+диалог/i.test(t)) {
-            const low = t.toLowerCase();
-            const found = Object.keys(CHARS).filter(k => low.includes(CHARS[k].name.toLowerCase()));
-            let p1_key = null, p2_key = null;
+        // ⚔️ БАТЛ: словесная дуэль двух персонажей
+if (/(?:батл|баттл|битв|спор|дуэл|дебат|сразись|сражение)/i.test(t) &&
+    /(?:устрой|запусти|начни|сделай|давай|хочу|проведи)/i.test(t)) {
 
-            if (found.length >= 2) { p1_key = found[0]; p2_key = found[1]; }
-            else if (found.length === 1) { p1_key = S.char; p2_key = found[0]; }
+    const found = findCharsInText(t);
+    let p1 = null, p2 = null;
 
-            if (p1_key && p2_key && p1_key !== p2_key) {
-                aM(`🎭 Начинаю диалог между ${CHARS[p1_key].name} и ${CHARS[p2_key].name}.\n(Скажи "Стоп" или нажми красную кнопку, чтобы прервать)`, 'p', false);
-                S.autoDialogueActive = true;
-                S.autoDialogueAbort = new AbortController();
-                $('stopAutoBtn').style.display = 'block';
-                await runAutoDialogue(p1_key, p2_key, 4, S.autoDialogueAbort.signal);
-                return;
-            } else if (p1_key === p2_key) {
-                aM("С самой собой разговаривать не буду. Выбери другого собеседника.", 'p');
-                return;
-            } else {
-                aM("С кем поговорить? Назови персонажей, например: начни диалог дворецкий и подросток.", 'p');
-                return;
-            }
-        }
+    if (found.length >= 2) { p1 = found[0]; p2 = found[1]; }
+    else if (found.length === 1) { p1 = S.char; p2 = found[0]; }
+
+    if (p1 && p2 && p1 !== p2) {
+        aM(`⚔️ БАТЛ: ${CHARS[p1].name} vs ${CHARS[p2].name}\n3 раунда + вердикт судьи.\n(Красная кнопка или «стоп» — прервать)`, 'p', false);
+        S.autoDialogueActive = true;
+        S.autoDialogueAbort = new AbortController();
+        $('stopAutoBtn').style.display = 'block';
+        await runBattleMode(p1, p2, 3, S.autoDialogueAbort.signal);
+        return;
+    } else if (p1 === p2) {
+        aM("Персонаж не может батлиться сам с собой. Выбери второго.", 'p');
+        return;
+    } else {
+        aM("С кем батл? Назови двух персонажей, например: «устрой батл дворецкий и подросток».", 'p');
+        return;
+    }
+}
 
         if (/давай сыграем|города|данетки|квест|игра/i.test(t) && !S.isGameMode) {
             S.isGameMode = true;
