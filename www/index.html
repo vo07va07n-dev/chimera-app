@@ -504,22 +504,31 @@ try {
 
         vib(); $('inp').value=''; toggleBtns(); aM(t,'u');
 
-        var autoMatch = t.match(/запусти диалог:?\s*([а-яА-Яa-zA-Z\s]+)\s*и\s*([а-яА-Яa-zA-Z\s]+)/i);
-        if (autoMatch) {
-            let p1_name = autoMatch[1].trim();
-            let p2_name = autoMatch[2].trim();
-            let p1_key = findCharKey(p1_name);
-            let p2_key = findCharKey(p2_name);
-            
-            if (p1_key && p2_key) {
+        // 🎭 АВТОДИАЛОГ: понимает ЛЮБЫЕ формулировки
+        if (/(?:запусти|начни|сделай|устрой)\s+диалог/i.test(t)) {
+            const low = t.toLowerCase();
+            const found = Object.keys(CHARS).filter(k => low.includes(CHARS[k].name.toLowerCase()));
+            let p1_key = null, p2_key = null;
+
+            if (found.length >= 2) {
+                p1_key = found[0]; p2_key = found[1];
+            } else if (found.length === 1) {
+                p1_key = S.char; p2_key = found[0];
+            }
+
+            if (p1_key && p2_key && p1_key !== p2_key) {
                 aM(`🎭 Начинаю диалог между ${CHARS[p1_key].name} и ${CHARS[p2_key].name}.\n(Скажи "Стоп" или нажми красную кнопку, чтобы прервать)`, 'p', false);
                 S.autoDialogueActive = true;
                 S.autoDialogueAbort = new AbortController();
                 $('stopAutoBtn').style.display = 'block';
                 await runAutoDialogue(p1_key, p2_key, 4, S.autoDialogueAbort.signal);
                 return;
+            } else if (p1_key === p2_key) {
+                aM("С самой собой разговаривать не буду. Выбери другого собеседника.", 'p');
+                return;
             } else {
-                aM("Не нашла таких персонажей. Проверь имена.", 'p'); return;
+                aM("С кем поговорить? Назови персонажей, например: начни диалог дворецкий и подросток.", 'p');
+                return;
             }
         }
 
