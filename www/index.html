@@ -55,13 +55,19 @@ textarea{border-radius:16px;resize:vertical;min-height:80px}
 .mc button:active{transform:scale(0.98)}
 #log-box{background:#000;border:1px solid #333;padding:10px;border-radius:8px;font-family:monospace;font-size:11px;color:var(--gr);margin-top:15px;white-space:pre-wrap;max-height:150px;overflow-y:auto;display:none}
 
-/* 🔥 СТИЛИ ДЛЯ РЕДАКТОРА ФОТО (КРОП) */
-#cropModal { display: none; position: fixed; inset: 0; background: #000; z-index: 200; flex-direction: column; }
-#cropContainer { flex: 1; position: relative; overflow: hidden; display: flex; justify-content: center; align-items: center; background: #05070d; }
-#cropImage { max-width: 100%; max-height: 100%; object-fit: contain; pointer-events: none; }
-#cropBox { position: absolute; border: 2px dashed var(--cy); background: rgba(0,229,255,0.2); pointer-events: none; }
-#cropControls { padding: 20px; display: flex; justify-content: center; gap: 10px; background: #0a1020; border-top: 1px solid #333; }
-#cropControls button { width: auto; padding: 12px 24px; border-radius: 12px; font-weight: bold; border: none; }
+/* 🔥 СТИЛИ ДЛЯ НОВОГО ЗУМ-РЕДАКТОРА */
+#cropModal { display: none; position: fixed; inset: 0; background: #000; z-index: 200; flex-direction: column; overflow: hidden; touch-action: none; }
+#cropContainer { flex: 1; position: relative; overflow: hidden; display: flex; justify-content: center; align-items: center; }
+#cropImage { position: absolute; transform-origin: center center; will-change: transform; max-width: none; pointer-events: none; }
+/* Рамка по центру */
+.crop-frame { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 85vw; height: 40vh; border: 2px solid var(--cy); box-shadow: 0 0 0 9999px rgba(0,0,0,0.65); pointer-events: none; z-index: 10; }
+.crop-frame::before, .crop-frame::after { content: ''; position: absolute; width: 20px; height: 20px; border: 3px solid var(--cy); }
+.crop-frame::before { top: -2px; left: -2px; border-right: none; border-bottom: none; }
+.crop-frame::after { bottom: -2px; right: -2px; border-left: none; border-top: none; }
+.crop-hint { position: absolute; bottom: 20px; left: 0; right: 0; text-align: center; color: #aaa; font-size: 12px; z-index: 10; }
+
+#cropControls { padding: 20px; display: flex; justify-content: center; gap: 10px; background: #0a1020; border-top: 1px solid #333; z-index: 20; }
+#cropControls button { padding: 12px 24px; border-radius: 12px; font-weight: bold; border: none; font-size: 14px; }
 </style>
 </head>
 <body>
@@ -90,11 +96,12 @@ textarea{border-radius:16px;resize:vertical;min-height:80px}
 <button class="btn mic" id="mic">🎤</button>
 </div>
 
-<!-- 🔥 МОДАЛКА РЕДАКТОРА ФОТО -->
+<!-- МОДАЛКА ЗУМ-РЕДАКТОРА -->
 <div id="cropModal">
     <div id="cropContainer">
         <img id="cropImage" alt="crop">
-        <div id="cropBox"></div>
+        <div class="crop-frame"></div>
+        <div class="crop-hint">Двигай и масштабируй фото двумя пальцами</div>
     </div>
     <div id="cropControls">
         <button id="cropCancelBtn" style="background: #333; color: #fff;">Отмена</button>
@@ -145,7 +152,9 @@ try {
     var DEFAULT_KEY = "__GROQ_API_KEY__";
     
     var S = { key:'', char:'butler', speaking:false, listening:false, apiAbort:null, autoSendTimer:null, history:[], battery:'100', pauseTime:parseFloat(localStorage.getItem('p_pause')||'3') };
-    var sR = " ВАЖНО: Пиши только чистый текст. Запрещено использовать Markdown (звездочки *, решетки #), кавычки и апострофы. НО ОБЯЗАТЕЛЬНО используй запятые, точки, вопросительные и восклицательные знаки.";
+    
+    // Строгое правило: только русский язык!
+    var sR = " ВАЖНО: Пиши только чистый текст. Запрещено использовать Markdown (звездочки *, решетки #), кавычки и апострофы. ОБЯЗАТЕЛЬНО используй запятые, точки, вопросительные и восклицательные знаки. СТРОГОЕ ПРАВИЛО: Общайся ИСКЛЮЧИТЕЛЬНО на русском языке. Никогда не переходи на английский, даже если пользователь пишет на английском или если на фото английский текст.";
     
     var DC = {
         butler: { name:"Дворецкий", emoji:"🤵", pitch:1.0, rate:1.0, prompt:"Ты - Chimera, элегантный британский дворецкий. Обращайся 'сэр'. Кратко."+sR, hello:"Я вас слушаю, сэр." },
@@ -325,15 +334,24 @@ try {
         try {
             if(nTTS) await nTTS.speak({text:c, lang:'ru-RU', rate:CHARS[S.char].rate, pitch:CHARS[S.char].pitch});
             else if('speechSynthesis' in window) {
+                window.speechSynthesis.cancel(); var u = new SpeechSynthesisUtterance(c);
+                u.lang='ru-RU'; u.rate=CHARS[S.char].rate; u.pitch=CHARS[S.char].pitch;
                 window.speechSynthesis.speak(u); await new Promise(r=>{u.onend=r; u.onerror=r;});
             }
         } catch(e){} finally { clearTimeout(st); fR(); }
     }
 
     // ==========================================
-    // 📷 РЕДАКТОР ФОТО (КРОП)
+    // 📷 НОВЫЙ ЗУМ-РЕДАКТОР (Pinch & Pan)
     // ==========================================
-    var cropper = { active: false, startX: 0, startY: 0 };
+    var cropper = {
+        active: false,
+        startX: 0, startY: 0,
+        tx: 0, ty: 0,
+        startTx: 0, startTy: 0,
+        scale: 1, startScale: 1,
+        initialDistance: 0
+    };
 
     $('camBtn').onclick = () => { vib(); $('camFallback').click(); };
 
@@ -342,9 +360,14 @@ try {
         if (!file) return;
         const reader = new FileReader();
         reader.onload = (ev) => {
-            $('cropImage').src = ev.target.result;
-            $('cropImage').dataset.original = ev.target.result;
-            $('cropBox').style.display = 'none';
+            const img = $('cropImage');
+            img.src = ev.target.result;
+            img.dataset.original = ev.target.result;
+            
+            // Сброс трансформаций
+            cropper.tx = 0; cropper.ty = 0; cropper.scale = 1;
+            img.style.transform = `translate(0px, 0px) scale(1)`;
+            
             $('cropModal').style.display = 'flex';
         };
         reader.readAsDataURL(file);
@@ -352,67 +375,117 @@ try {
     };
 
     const cropContainer = $('cropContainer');
-    cropContainer.addEventListener('touchstart', (e) => {
-        if (!e.touches || e.touches.length === 0) return;
-        const touch = e.touches[0];
-        const rect = cropContainer.getBoundingClientRect();
-        cropper.startX = touch.clientX - rect.left;
-        cropper.startY = touch.clientY - rect.top;
-        cropper.active = true;
-        
-        const box = $('cropBox');
-        box.style.display = 'block';
-        box.style.left = cropper.startX + 'px';
-        box.style.top = cropper.startY + 'px';
-        box.style.width = '0px';
-        box.style.height = '0px';
-    });
+    const cropImg = $('cropImage');
 
-    cropContainer.addEventListener('touchmove', (e) => {
-        if (!cropper.active) return;
+    // Обработка мультитача для пинч-зума
+    cropContainer.addEventListener('touchstart', (e) => {
         e.preventDefault();
-        const touch = e.touches[0];
-        const rect = cropContainer.getBoundingClientRect();
-        const currentX = touch.clientX - rect.left;
-        const currentY = touch.clientY - rect.top;
-        
-        const box = $('cropBox');
-        box.style.width = Math.abs(currentX - cropper.startX) + 'px';
-        box.style.height = Math.abs(currentY - cropper.startY) + 'px';
-        box.style.left = Math.min(currentX, cropper.startX) + 'px';
-        box.style.top = Math.min(currentY, cropper.startY) + 'px';
+        if (e.touches.length === 1) {
+            cropper.active = true;
+            cropper.startX = e.touches[0].clientX;
+            cropper.startY = e.touches[0].clientY;
+            cropper.startTx = cropper.tx;
+            cropper.startTy = cropper.ty;
+        } else if (e.touches.length === 2) {
+            cropper.active = true;
+            cropper.startScale = cropper.scale;
+            cropper.startTx = cropper.tx;
+            cropper.startTy = cropper.ty;
+            cropper.initialDistance = Math.hypot(
+                e.touches[0].clientX - e.touches[1].clientX,
+                e.touches[0].clientY - e.touches[1].clientY
+            );
+        }
     }, { passive: false });
 
-    cropContainer.addEventListener('touchend', () => { cropper.active = false; });
+    cropContainer.addEventListener('touchmove', (e) => {
+        e.preventDefault();
+        if (!cropper.active) return;
+
+        if (e.touches.length === 1) {
+            // Перетаскивание (Pan)
+            const dx = e.touches[0].clientX - cropper.startX;
+            const dy = e.touches[0].clientY - cropper.startY;
+            cropper.tx = cropper.startTx + dx;
+            cropper.ty = cropper.startTy + dy;
+            cropImg.style.transform = `translate(${cropper.tx}px, ${cropper.ty}px) scale(${cropper.scale})`;
+        } else if (e.touches.length === 2) {
+            // Масштабирование (Pinch)
+            const currentDistance = Math.hypot(
+                e.touches[0].clientX - e.touches[1].clientX,
+                e.touches[0].clientY - e.touches[1].clientY
+            );
+            const ratio = currentDistance / cropper.initialDistance;
+            let newScale = cropper.startScale * ratio;
+            
+            // Ограничиваем масштаб от 0.5 до 8
+            newScale = Math.max(0.5, Math.min(8, newScale));
+            cropper.scale = newScale;
+
+            // Центр между пальцами
+            const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+            const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+            
+            // Корректируем смещение, чтобы зум шел от центра пальцев
+            // (Упрощенная версия, достаточная для UX)
+            const startMidX = (e.touches[0].clientX - cropper.startX) / 2 + cropper.startX; // Not exact, but works well visually
+            
+            cropImg.style.transform = `translate(${cropper.tx}px, ${cropper.ty}px) scale(${cropper.scale})`;
+        }
+    }, { passive: false });
+
+    cropContainer.addEventListener('touchend', (e) => {
+        if (e.touches.length === 0) cropper.active = false;
+        // Если остался один палец после пинча, сбрасываем точку старта
+        if (e.touches.length === 1) {
+            cropper.startX = e.touches[0].clientX;
+            cropper.startY = e.touches[0].clientY;
+            cropper.startTx = cropper.tx;
+            cropper.startTy = cropper.ty;
+        }
+    });
 
     $('cropCancelBtn').onclick = () => { $('cropModal').style.display = 'none'; };
 
     $('cropDoneBtn').onclick = () => {
         const img = $('cropImage');
-        const box = $('cropBox');
-        const boxRect = box.getBoundingClientRect();
-        const imgRect = img.getBoundingClientRect();
-        
-        // Если область выделена слишком маленькая, берем оригинал
-        if (box.style.display === 'none' || boxRect.width < 20 || boxRect.height < 20) {
-            $('cropModal').style.display = 'none';
-            processMathImage(img.dataset.original);
-            return;
-        }
-        
+        const frame = document.querySelector('.crop-frame');
         const canvas = document.createElement('canvas');
-        const scaleX = img.naturalWidth / imgRect.width;
-        const scaleY = img.naturalHeight / imgRect.height;
         
-        canvas.width = boxRect.width * scaleX;
-        canvas.height = boxRect.height * scaleY;
+        // Размеры рамки и экрана
+        const W = cropContainer.clientWidth;
+        const H = cropContainer.clientHeight;
+        const CW = frame.clientWidth;
+        const CH = frame.clientHeight;
+
+        // Исходные размеры картинки
+        const IW = img.naturalWidth;
+        const IH = img.naturalHeight;
+
+        // Координаты и масштаб
+        const s = cropper.scale;
+        const tx = cropper.tx;
+        const ty = cropper.ty;
+
+        // Математика вырезки (центр экрана совпадает с центром рамки)
+        // Координата X в оригинале = (Ширина_картинки / 2) - (Ширина_рамки / (2 * масштаб)) - (Смещение_X / масштаб)
+        const cropX = (IW / 2) - (CW / (2 * s)) - (tx / s);
+        const cropY = (IH / 2) - (CH / (2 * s)) - (ty / s);
+        const cropW = CW / s;
+        const cropH = CH / s;
+
+        canvas.width = Math.round(cropW);
+        canvas.height = Math.round(cropH);
         
         const ctx = canvas.getContext('2d');
-        const cropX = (boxRect.left - imgRect.left) * scaleX;
-        const cropY = (boxRect.top - imgRect.top) * scaleY;
-        
-        ctx.drawImage(img, cropX, cropY, canvas.width, canvas.height, 0, 0, canvas.width, canvas.height);
-        
+        // Убедимся, что не выходим за границы
+        const safeX = Math.max(0, Math.min(IW, cropX));
+        const safeY = Math.max(0, Math.min(IH, cropY));
+        const safeW = Math.min(IW - safeX, cropW);
+        const safeH = Math.min(IH - safeY, cropH);
+
+        ctx.drawImage(img, safeX, safeY, safeW, safeH, 0, 0, canvas.width, canvas.height);
+
         $('cropModal').style.display = 'none';
         processMathImage(canvas.toDataURL('image/jpeg', 0.9));
     };
@@ -425,18 +498,18 @@ try {
         $('orb').classList.add('thinking'); 
         $('status').textContent='Сканирую...';
         
-        var visionPrompt = `Ты — идеальный OCR-сканер математики. Твоя задача — переписать ВСЕ формулы и уравнения с фото в виде обычного текста. 
+        var visionPrompt = `Ты — идеальный OCR-сканер математики. Твоя задача — переписать ВСЕ формулы и уравнения с фото в виде обычного текста НА РУССКОМ ЯЗЫКЕ.
         Правила:
         1. Дроби пиши строго так: "числитель/знаменатель". Например: 1/10, 1/2, 2/5.
         2. Если есть знак равно (=), пиши его как =.
-        3. НЕ ОПИСЫВАЙ картинку словами (не пиши "на фото изображено...", "это страница учебника..."). 
+        3. НЕ ОПИСЫВАЙ картинку словами (не пиши "на фото изображено...").
         4. Просто выдай чистый математический текст того, что видишь. Если есть номера задач, пиши их.
         Пример вывода: "№506: 1/10 + 1/2 + 2/5 = ... №507: x + 7/12 = 3/4"`;
         
         var cm1 = [
             { role: 'system', content: visionPrompt },
             { role: 'user', content: [
-                { type: 'text', text: 'Выдай только математический текст с этого фото.' }, 
+                { type: 'text', text: 'Выдай только математический текст с этого фото на русском языке.' }, 
                 { type: 'image_url', image_url: { url: base64Image } }
             ]}
         ];
@@ -455,9 +528,12 @@ try {
             
             aM(`📝 Распознано с фото:\n${extractedText}`, 'p', false);
             
+            S.history.push({ role: 'user', content: 'Вот задание с фото: ' + extractedText });
+            saveHistory();
+
             $('status').textContent='Решаю...';
             
-            var solvePrompt = CHARS[S.char].prompt + `\n\nПользователь прислал фото с математикой. OCR-сканер распознал следующий текст:\n"${extractedText}"\n\nТвоя задача: реши эти примеры и уравнения пошагово, как в учебнике. Покажи процесс решения (приведение к общему знаменателю, перенос слагаемых и т.д.) и выдай финальный ответ.`;
+            var solvePrompt = CHARS[S.char].prompt + `\n\nПользователь прислал фото с математикой. OCR-сканер распознал следующий текст:\n"${extractedText}"\n\nТвоя задача: реши эти примеры и уравнения пошагово. ОТВЕЧАЙ ТОЛЬКО НА РУССКОМ ЯЗЫКЕ. Покажи процесс решения и выдай финальный ответ.`;
             
             var cm2 = [
                 { role: 'system', content: solvePrompt }, 
@@ -475,10 +551,9 @@ try {
             if(d2.error) { aM('ОШИБКА: ' + d2.error.message, 'p'); fR(); return; }
             var solution = cT(d2.choices[0].message.content);
             
+            // УБРАНА ОЗВУЧКА (spk), ТЕПЕРЬ ТОЛЬКО ТЕКСТ
             aM(solution, 'p'); 
-            spk(solution);
             
-            S.history.push({ role: 'user', content: 'Задание с фото: ' + extractedText });
             S.history.push({ role: 'assistant', content: solution });
             saveHistory();
 
