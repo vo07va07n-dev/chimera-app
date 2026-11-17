@@ -116,13 +116,11 @@ textarea{border-radius:16px;resize:vertical;min-height:80px}
 
 <div class="modal" id="modal"><div class="mc">
 <h3>⚙️ Настройки</h3>
-
-<!-- 🔥 ВЫБОР ПРОВАЙДЕРА -->
-<label>Провайдер ИИ</label>
+<label>Провайдер ИИ (для обычного чата)</label>
 <select id="inpProvider">
     <option value="groq">Groq (быстрый, 100/день)</option>
     <option value="gemini">Gemini (1500/день)</option>
-    <option value="auto">Авто (Groq → Gemini при лимите)</option>
+    <option value="auto">Авто (Groq → Gemini)</option>
 </select>
 
 <label>Пауза перед отправкой (сек)</label>
@@ -131,7 +129,15 @@ textarea{border-radius:16px;resize:vertical;min-height:80px}
 </select>
 <button id="saveBtn">Сохранить</button>
 <button id="clearChatBtn" style="background:var(--rd);color:#fff;margin-top:6px;">🗑 Очистить историю</button>
-<div style="margin-top:25px;border-top:1px solid rgba(255,255,255,0.1);padding-top:15px;">
+
+<div style="margin-top:20px;padding:12px;border-radius:10px;background:rgba(255,209,102,0.06);border:1px solid rgba(255,209,102,0.2);font-size:12px;color:#ffeab3;line-height:1.6;">
+  <b>⚔️ Режимы диалогов:</b><br>
+  • «Запусти диалог: [1] и [2]» — обычный (40 раунда)<br>
+  • «Запусти баттл: [1] и [2]» — жёсткий (60 раундов)<br>
+  Первый персонаж = <span style="color:#ff9">Groq</span>, второй = <span style="color:#ff9">Gemini</span>
+</div>
+
+<div style="margin-top:20px;border-top:1px solid rgba(255,255,255,0.1);padding-top:15px;">
 <h3 style="color:var(--gr)">✨ Создать персонажа</h3>
 <label>Имя</label><input type="text" id="customName" placeholder="Например: Пират">
 <label>Эмодзи</label><input type="text" id="customEmoji" placeholder="🏴‍☠️" maxlength="2">
@@ -143,7 +149,7 @@ textarea{border-radius:16px;resize:vertical;min-height:80px}
 
 <div class="modal" id="diagModal"><div class="mc">
 <h3>🔧 Диагностика</h3>
-<button id="testApiBtn" style="background:var(--gr);color:#000;">🌐 Тест API</button>
+<button id="testApiBtn" style="background:var(--gr);color:#000;">🌐 Тест API (оба)</button>
 <button id="testTtsBtn" style="background:var(--gd);color:#000;">🗣 Тест TTS</button>
 <button id="testSttBtn" style="background:var(--cy);color:#000;">🎤 Тест STT</button>
 <button id="forceResetBtn" style="background:var(--rd);color:#fff;margin-top:15px;">🚨 СБРОС</button>
@@ -163,19 +169,17 @@ try {
     var nDev = cP.Device || null;
     var nNotif = cP.LocalNotifications || null;
 
-    // 🔑 ДВА КЛЮЧА
     var GROQ_KEY = "__GROQ_API_KEY__";
     var GEMINI_KEY = "__GEMINI_API_KEY__";
     
     var S = { 
-        key: GROQ_KEY, 
-        geminiKey: GEMINI_KEY,
+        key: GROQ_KEY, geminiKey: GEMINI_KEY,
         provider: localStorage.getItem('p_provider') || 'groq',
         char:'butler', speaking:false, listening:false, 
         apiAbort:null, autoSendTimer:null, history:[], 
         battery:'100', pauseTime:parseFloat(localStorage.getItem('p_pause')||'3'), 
         isGameMode: false, autoDialogueActive: false, autoDialogueAbort: null,
-        currentProvider: '' // какой реально использовался последний раз
+        currentProvider: ''
     };
     
     var sR = " ВАЖНО: Пиши только чистый текст. Запрещено использовать Markdown (звездочки *, решетки #), кавычки и апострофы. ОБЯЗАТЕЛЬНО используй запятые, точки, вопросительные и восклицательные знаки. СТРОГОЕ ПРАВИЛО: Общайся ИСКЛЮЧИТЕЛЬНО на русском языке.";
@@ -194,7 +198,7 @@ try {
         teacher: { 
             name:"Училка", emoji:"👩‍🏫", pitch:1.2, rate:1.1, 
             prompt:"Ты - Chimera, молодая ироничная училка с лёгким флиртом. Называй пользователя 'молодой человек', шути про опоздания и двойки." + sR, 
-            hello:"Опять опоздал на 15 минут, молодой человек. Садись, два тебе." 
+            hello:"Опять опоздал на 15 минут, молодой человек." 
         },
         depressed_ai: { 
             name:"Депрессивный ИИ", emoji:"🥶", pitch:0.6, rate:0.85, 
@@ -211,12 +215,10 @@ try {
     if (nDev && nDev.getBatteryInfo) nDev.getBatteryInfo().then(i => { S.battery = Math.round(i.batteryLevel*100) + (i.isCharging?'(заряд)':'%'); }).catch(()=>{});
     if (nNotif && nNotif.requestPermissions) nNotif.requestPermissions().catch(()=>{});
 
-    // Проверка ключей
     if (!S.key || S.key === "__GROQ_API_KEY__") {
         document.getElementById('status').textContent = '❌ Groq ключ не вшит!';
         document.getElementById('status').style.color = 'var(--rd)';
     }
-    
     if($('inpPause')) $('inpPause').value = S.pauseTime;
     if($('inpProvider')) $('inpProvider').value = S.provider;
 
@@ -294,18 +296,17 @@ try {
     }
 
     // ==========================================
-    // 🤖 УНИВЕРСАЛЬНЫЙ ВЫЗОВ ИИ (Groq / Gemini / Auto)
+    // 🤖 БАЗОВЫЕ ВЫЗОВЫ ИИ
     // ==========================================
     async function callGroq(messages, options = {}) {
         const body = {
             model: options.model || 'openai/gpt-oss-120b',
             messages: messages,
-            temperature: 0.8,
-            max_tokens: 600
+            temperature: options.temperature ?? 0.8,
+            max_tokens: options.max_tokens || 600
         };
         const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-            method: 'POST',
-            signal: options.signal,
+            method: 'POST', signal: options.signal,
             headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + S.key },
             body: JSON.stringify(body)
         });
@@ -326,13 +327,41 @@ try {
         }));
         const model = options.model || 'gemini-2.0-flash';
         const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${S.geminiKey}`, {
-            method: 'POST',
-            signal: options.signal,
+            method: 'POST', signal: options.signal,
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 system_instruction: sys ? { parts: [{ text: sys }] } : undefined,
                 contents: contents,
-                generationConfig: { temperature: 0.8, maxOutputTokens: 600 }
+                generationConfig: { temperature: options.temperature ?? 0.8, maxOutputTokens: options.max_tokens || 600
+                                   };
+        const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+            method: 'POST', signal: options.signal,
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + S.key },
+            body: JSON.stringify(body)
+        });
+        const txt = await res.text();
+        if (!res.ok) throw new Error(`Groq ${res.status}: ${txt.slice(0,150)}`);
+        const d = JSON.parse(txt);
+        return d.choices?.[0]?.message?.content || '';
+    }
+
+    async function callGemini(messages, options = {}) {
+        if (!S.geminiKey || S.geminiKey === "__GEMINI_API_KEY__") {
+            throw new Error('Gemini ключ не настроен');
+        }
+        const sys = messages.find(m => m.role === 'system')?.content || '';
+        const contents = messages.filter(m => m.role !== 'system').map(m => ({
+            role: m.role === 'assistant' ? 'model' : 'user',
+            parts: [{ text: m.content }]
+        }));
+        const model = options.model || 'gemini-2.0-flash';
+        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${S.geminiKey}`, {
+            method: 'POST', signal: options.signal,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                system_instruction: sys ? { parts: [{ text: sys }] } : undefined,
+                contents: contents,
+                generationConfig: { temperature: options.temperature ?? 0.8, maxOutputTokens: options.max_tokens || 600 }
             })
         });
         const txt = await res.text();
@@ -341,43 +370,47 @@ try {
         return d.candidates?.[0]?.content?.parts?.[0]?.text || '';
     }
 
-    // Универсальный вызов
+    // Универсальный вызов (с учётом выбранного провайдера)
     async function callLLM(messages, options = {}) {
-        const provider = S.provider;
-        
-        if (provider === 'gemini') {
-            try {
-                S.currentProvider = 'gemini';
-                return await callGemini(messages, options);
-            } catch(e) {
-                console.warn('Gemini failed:', e.message);
-                // Если Gemini упал — пробуем Groq
-                if (S.key && S.key !== "__GROQ_API_KEY__") {
-                    S.currentProvider = 'groq';
-                    return await callGroq(messages, options);
-                }
-                throw e;
-            }
+        if (S.provider === 'gemini') {
+            try { S.currentProvider = 'gemini'; return await callGemini(messages, options); }
+            catch(e) { if (S.key && S.key !== "__GROQ_API_KEY__") { S.currentProvider = 'groq'; return await callGroq(messages, options); } throw e; }
         }
-        
-        if (provider === 'auto') {
-            try {
-                S.currentProvider = 'groq';
-                return await callGroq(messages, options);
-            } catch(e) {
-                console.warn('Groq failed:', e.message);
-                // Авто-fallback на Gemini
-                if (S.geminiKey && S.geminiKey !== "__GEMINI_API_KEY__") {
-                    S.currentProvider = 'gemini';
-                    return await callGemini(messages, options);
-                }
-                throw e;
-            }
+        if (S.provider === 'auto') {
+            try { S.currentProvider = 'groq'; return await callGroq(messages, options); }
+            catch(e) { if (S.geminiKey && S.geminiKey !== "__GEMINI_API_KEY__") { S.currentProvider = 'gemini'; return await callGemini(messages, options); } throw e; }
         }
-        
-        // provider === 'groq' (по умолчанию)
         S.currentProvider = 'groq';
         return await callGroq(messages, options);
+    }
+
+    // 🔥 ВЫЗОВ С ФИКСИРОВАННЫМ ПРОВАЙДЕРОМ (для баттла)
+    async function callLLMWithProvider(messages, provider, options = {}) {
+        try {
+            if (provider === 'gemini') {
+                if (!S.geminiKey || S.geminiKey === "__GEMINI_API_KEY__") {
+                    console.warn('Gemini key missing, fallback to Groq');
+                    return await callGroq(messages, options);
+                }
+                return await callGemini(messages, options);
+            } else {
+                if (!S.key || S.key === "__GROQ_API_KEY__") {
+                    console.warn('Groq key missing, fallback to Gemini');
+                    return await callGemini(messages, options);
+                }
+                return await callGroq(messages, options);
+            }
+        } catch(e) {
+            console.warn(`Provider ${provider} failed:`, e.message);
+            // Fallback на другого провайдера
+            if (provider === 'gemini' && S.key && S.key !== "__GROQ_API_KEY__") {
+                return await callGroq(messages, options);
+            }
+            if (provider === 'groq' && S.geminiKey && S.geminiKey !== "__GEMINI_API_KEY__") {
+                return await callGemini(messages, options);
+            }
+            throw e;
+        }
     }
 
     function rC() {
@@ -402,7 +435,7 @@ try {
     function lH() {
         try {
             var h = JSON.parse(localStorage.getItem('p_h')||'[]'); S.history = h; $('chat').innerHTML='';
-            if(h.length===0) aM("Привет! Я Chimera. Выбери персонажа, напиши, или запусти игру (например: «Давай сыграем в города»).", 'p', false);
+            if(h.length===0) aM("Привет! Я Chimera. Попробуй: «Запусти баттл: Дворецкий и Депрессивный ИИ»", 'p', false);
             else { h.forEach(m => aB(m.content, m.role==='user'?'u':'p')); $('chat').scrollTop=$('chat').scrollHeight; }
         } catch(e){}
     }
@@ -452,12 +485,12 @@ try {
                 window.speechSynthesis.speak(u); 
                 await new Promise(r=>{u.onend=r; u.onerror=r;});
             }
-        } catch(e){ console.warn('TTS error', e); } 
+        } catch(e){} 
         finally { clearTimeout(st); fR(); }
     }
 
     // ==========================================
-    // 📷 РЕДАКТОР ФОТО (ЗУМ)
+    // 📷 РЕДАКТОР ФОТО
     // ==========================================
     var cropper = { active: false, startX: 0, startY: 0, tx: 0, ty: 0, startTx: 0, startTy: 0, scale: 1, startScale: 1, initialDistance: 0 };
 
@@ -545,15 +578,11 @@ try {
         aB("📷 [Фото отправлено на анализ]", 'u');
         $('orb').classList.add('thinking'); $('status').textContent='Сканирую...';
         
-        // OCR через Gemini (лучше видит) или Qwen на Groq
         var extractedText = '';
         try {
             if (S.geminiKey && S.geminiKey !== "__GEMINI_API_KEY__") {
-                // Gemini Vision
-                const model = 'gemini-2.0-flash';
-                const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${S.geminiKey}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${S.geminiKey}`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         contents: [{
                             parts: [
@@ -568,7 +597,6 @@ try {
             }
         } catch(e) { console.warn('Gemini Vision failed', e); }
 
-        // Fallback на Qwen (Groq) если Gemini не справился
         if (!extractedText) {
             try {
                 const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -594,7 +622,6 @@ try {
         S.history.push({ role: 'user', content: 'Вот задание с фото: ' + extractedText });
         sH();
 
-        // Решение через универсальный вызов
         $('orb').classList.add('thinking'); $('status').textContent='Решаю...';
         try {
             const sys = CHARS[S.char].prompt + `\n\nПользователь прислал фото с математикой. OCR распознал:\n"${extractedText}"\n\nРеши это пошагово. ОТВЕЧАЙ ТОЛЬКО НА РУССКОМ.`;
@@ -614,7 +641,7 @@ try {
     }
 
     // ==========================================
-    // 💬 ОТПРАВКА
+    // 💬 ОТПРАВКА (с детектом баттла)
     // ==========================================
     async function snd() {
         fR(); 
@@ -635,39 +662,46 @@ try {
         }
 
         if(!S.key || S.key === "__GROQ_API_KEY__") {
-            if (!S.geminiKey || S.geminiKey === "__GEMINI_API_KEY__") {
-                return aM("❌ Ни один ключ не вшит.", 'p');
-            }
+            if (!S.geminiKey || S.geminiKey === "__GEMINI_API_KEY__") return aM("❌ Ни один ключ не вшит.", 'p');
         }
         if (detectInjection(t)) return aM("⚠️ Взлом заблокирован.", 'p');
 
         vib(); $('inp').value=''; toggleBtns(); aM(t,'u');
 
-        // ⚔️ БАТЛ: словесная дуэль двух персонажей
-if (/(?:батл|баттл|битв|спор|дуэл|дебат|сразись|сражение)/i.test(t) &&
-    /(?:устрой|запусти|начни|сделай|давай|хочу|проведи)/i.test(t)) {
+        // 🔥 ДЕТЕКТ БАТТЛА И ДИАЛОГА
+        const low = t.toLowerCase();
+        const isBattle = /(?:запусти|начни|сделай|устрой|давай)\s+(?:баттл|битв|перепалк|дуэль|жёстк)/i.test(low);
+        const isDialogue = /(?:запусти|начни|сделай|устрой|давай)\s+диалог/i.test(low);
 
-    const found = findCharsInText(t);
-    let p1 = null, p2 = null;
+        if (isBattle || isDialogue) {
+            const found = Object.keys(CHARS).filter(k => low.includes(CHARS[k].name.toLowerCase()));
+            let p1_key = null, p2_key = null;
 
-    if (found.length >= 2) { p1 = found[0]; p2 = found[1]; }
-    else if (found.length === 1) { p1 = S.char; p2 = found[0]; }
+            if (found.length >= 2) { p1_key = found[0]; p2_key = found[1]; }
+            else if (found.length === 1) { p1_key = S.char; p2_key = found[0]; }
 
-    if (p1 && p2 && p1 !== p2) {
-        aM(`⚔️ БАТЛ: ${CHARS[p1].name} vs ${CHARS[p2].name}\n3 раунда + вердикт судьи.\n(Красная кнопка или «стоп» — прервать)`, 'p', false);
-        S.autoDialogueActive = true;
-        S.autoDialogueAbort = new AbortController();
-        $('stopAutoBtn').style.display = 'block';
-        await runBattleMode(p1, p2, 3, S.autoDialogueAbort.signal);
-        return;
-    } else if (p1 === p2) {
-        aM("Персонаж не может батлиться сам с собой. Выбери второго.", 'p');
-        return;
-    } else {
-        aM("С кем батл? Назови двух персонажей, например: «устрой батл дворецкий и подросток».", 'p');
-        return;
-    }
-}
+            if (p1_key && p2_key && p1_key !== p2_key) {
+                const c1 = CHARS[p1_key]; const c2 = CHARS[p2_key];
+                
+                if (isBattle) {
+                    aM(`⚔️ БАТТЛ: ${c1.name} (Groq) VS ${c2.name} (Gemini)\n60 раундов жёсткой перепалки. Скажи "Стоп" чтобы прервать.`, 'p', false);
+                } else {
+                    aM(`🎭 Диалог: ${c1.name} (Groq) + ${c2.name} (Gemini)\n40 раунда. Скажи "Стоп" чтобы прервать.`, 'p', false);
+                }
+                
+                S.autoDialogueActive = true;
+                S.autoDialogueAbort = new AbortController();
+                $('stopAutoBtn').style.display = 'block';
+                await runAutoDialogue(p1_key, p2_key, isBattle ? 6 : 4, S.autoDialogueAbort.signal, isBattle);
+                return;
+            } else if (p1_key === p2_key) {
+                aM("С самой собой разговаривать не буду. Выбери другого собеседника.", 'p');
+                return;
+            } else {
+                aM("С кем поговорить? Назови персонажей, например: «Запусти баттл: Дворецкий и Подросток».", 'p');
+                return;
+            }
+        }
 
         if (/давай сыграем|города|данетки|квест|игра/i.test(t) && !S.isGameMode) {
             S.isGameMode = true;
@@ -695,65 +729,76 @@ if (/(?:батл|баттл|битв|спор|дуэл|дебат|сразись
                 const clean = cT(rp); 
                 aM(clean,'p'); 
                 spk(clean);
-                // Показываем, кто ответил (маленькая подсказка в статусе)
-                if (S.provider === 'auto') {
-                    setTimeout(()=>setStatus(S.currentProvider === 'gemini' ? '⚡ Gemini' : '🚀 Groq'), 2000);
-                }
             }
         } catch(e) {
             clearTimeout(to); $('orb').classList.remove('thinking');
-            aM('ОШИБКА: ' + e.message, 'p');
+  aM('ОШИБКА: ' + e.message, 'p');
             setStatus('Ошибка');
         }
     }
 
     // ==========================================
-    // 🎭 АВТОДИАЛОГ (использует callLLM)
+    // 🎭 ДУЭЛЬ: Groq VS Gemini
     // ==========================================
-    async function runAutoDialogue(char1Key, char2Key, turns = 4, signal) {
+    async function runAutoDialogue(char1Key, char2Key, turns = 4, signal, isBattle = false) {
         let c1 = CHARS[char1Key]; let c2 = CHARS[char2Key];
         let history = [];
+
+        // Первый = Groq, Второй = Gemini
+        const P1 = 'groq';
+        const P2 = 'gemini';
+        const label1 = `${c1.name} [Groq]`;
+        const label2 = `${c2.name} [Gemini]`;
+
+        // Промпты для баттла
+        const battleSuffix = isBattle 
+            ? "\n\n⚔️ РЕЖИМ БАТТЛА: Это словесная дуэль. Твой оппонент — другая нейросеть. Подкалывай его, будь максимально остроумным и дерзким. Не соглашайся, атакуй, переворачивай его аргументы. Не повторяйся. Отвечай коротко (не более 3 предложений). Без реальной ненависти, но максимально жёстко и с юмором."
+            : "\n\nОтвечай коротко и в своем стиле.";
 
         for (let i = 0; i < turns; i++) {
             if (!S.autoDialogueActive || signal.aborted) break;
             
-            $('status').textContent = `[${c1.name}] говорит...`;
+            // ХОД 1 — Groq
+            $('status').textContent = `⚡ ${label1} думает...`;
             
-            let prompt1 = c1.prompt + `\n\nТы общаешься с ${c2.name}. Ответь ему коротко.`;
-            let cm1 = [{role:'system', content: prompt1}, ...history.slice(-4)];
-            if (history.length === 0) cm1.push({role:'user', content: `Начни диалог с ${c2.name}.`});
+            let prompt1 = c1.prompt + `\n\nТы общаешься с ${c2.name}.` + battleSuffix;
+            let cm1 = [{role:'system', content: prompt1}, ...history.slice(-6)];
+            if (history.length === 0) cm1.push({role:'user', content: `Начни ${isBattle ? 'баттл' : 'диалог'} с ${c2.name}.`});
             
             try {
-                let ans1 = await callLLM(cm1, { signal });
+                let ans1 = await callLLMWithProvider(cm1, P1, { signal, temperature: isBattle ? 0.95 : 0.8 });
                 if (!S.autoDialogueActive || signal.aborted) break;
                 ans1 = cT(ans1);
-                aM(`[${c1.name}]: ${ans1}`, 'p', false);
+                if (!ans1) ans1 = '...';
+                aM(`[${label1}]: ${ans1}`, 'p', false);
                 history.push({role:'assistant', content:`[${c1.name}]: ${ans1}`});
                 
                 await spkAs(ans1, c1, signal);
                 if (!S.autoDialogueActive || signal.aborted) break;
 
-                $('status').textContent = `[${c2.name}] говорит...`;
-                let prompt2 = c2.prompt + `\n\nТы общаешься с ${c1.name}. Ответь ему.`;
-                let cm2 = [{role:'system', content: prompt2}, ...history.slice(-4)];
+                // ХОД 2 — Gemini
+                $('status').textContent = `🌐 ${label2} думает...`;
+                let prompt2 = c2.prompt + `\n\nТы общаешься с ${c1.name}.` + battleSuffix;
+                let cm2 = [{role:'system', content: prompt2}, ...history.slice(-6)];
                 
-                let ans2 = await callLLM(cm2, { signal });
+                let ans2 = await callLLMWithProvider(cm2, P2, { signal, temperature: isBattle ? 0.95 : 0.8 });
                 if (!S.autoDialogueActive || signal.aborted) break;
                 ans2 = cT(ans2);
-                aM(`[${c2.name}]: ${ans2}`, 'p', false);
+                if (!ans2) ans2 = '...';
+                aM(`[${label2}]: ${ans2}`, 'p', false);
                 history.push({role:'assistant', content:`[${c2.name}]: ${ans2}`});
                 
                 await spkAs(ans2, c2, signal);
 
             } catch(e) { 
-                if (e.name !== 'AbortError') aM('⚠️ ' + e.message, 'p', false);
+                if (e.name !== 'AbortError') aM('⚠️ ' + e.message.slice(0,80), 'p', false);
                 break; 
             }
         }
         
         if (S.autoDialogueActive) {
-            $('status').textContent = 'Диалог завершен.';
-            aM("🎭 Диалог персонажей завершен.", 'p', false);
+            $('status').textContent = isBattle ? '⚔️ Баттл завершен' : '🎭 Диалог завершен';
+            aM(isBattle ? "⚔️ Баттл завершен." : "🎭 Диалог завершен.", 'p', false);
         }
         S.autoDialogueActive = false;
         S.autoDialogueAbort = null;
@@ -765,7 +810,7 @@ if (/(?:батл|баттл|битв|спор|дуэл|дебат|сразись
         if (S.autoDialogueActive) {
             S.autoDialogueActive = false;
             if (S.autoDialogueAbort) S.autoDialogueAbort.abort();
-            aM("🛑 Диалог остановлен вручную.", 'p');
+            aM("🛑 Прервано вручную.", 'p');
             $('stopAutoBtn').style.display = 'none';
             fR();
         }
@@ -774,12 +819,12 @@ if (/(?:батл|баттл|битв|спор|дуэл|дебат|сразись
     async function spkAs(text, charProfile, signal) {
         if(!text || (signal && signal.aborted)) return;
         var c = cT(text);
-        if (nTTS) c = c.replace(/\.\.\./g, '. <break time="800ms"/> ');
+        if (nTTS) c = c.replace(/\.\.\./g, '. <break time="600ms"/> ');
         try {
             if(nTTS) {
                 await nTTS.speak({text:c, lang:'ru-RU', rate:charProfile.rate, pitch:charProfile.pitch});
                 if (signal && signal.aborted) { await nTTS.stop(); return; }
-                await new Promise(r => setTimeout(r, 500));
+                await new Promise(r => setTimeout(r, 300));
             } else if ('speechSynthesis' in window) {
                 window.speechSynthesis.cancel();
                 var u = new SpeechSynthesisUtterance(c);
@@ -790,9 +835,9 @@ if (/(?:батл|баттл|битв|спор|дуэл|дебат|сразись
                     if (signal) signal.addEventListener('abort', () => { window.speechSynthesis.cancel(); r(); });
                 });
                 if (signal && signal.aborted) return;
-                await new Promise(r => setTimeout(r, 500)); 
+                await new Promise(r => setTimeout(r, 400)); 
             }
-        } catch(e){ console.warn('TTS error', e); }
+        } catch(e){}
     }
 
     async function fSM() { if(!nSTT) return; try { await nSTT.stop(); } catch(e){} fR(); }
@@ -839,7 +884,7 @@ if (/(?:батл|баттл|битв|спор|дуэл|дебат|сразись
         localStorage.setItem('p_pause', S.pauseTime); 
         localStorage.setItem('p_provider', S.provider);
         $('modal').style.display='none'; 
-        aM(`Настройки сохранены. Провайдер: ${S.provider === 'auto' ? 'Авто (Groq → Gemini)' : S.provider === 'gemini' ? 'Gemini' : 'Groq'}`, 'p'); 
+        aM('Настройки сохранены.', 'p'); 
     };
 
     $('addCharBtn').onclick = ()=>{
@@ -864,13 +909,11 @@ if (/(?:батл|баттл|битв|спор|дуэл|дебат|сразись
         try{ if(nSTT) await nSTT.stop(); }catch(e){}
         if(S.apiAbort){ S.apiAbort.abort(); S.apiAbort=null; }
         if(S.autoDialogueAbort){ S.autoDialogueAbort.abort(); S.autoDialogueAbort=null; }
-        S.autoDialogueActive = false;
-        S.isGameMode = false;
+        S.autoDialogueActive = false; S.isGameMode = false;
         $('stopAutoBtn').style.display = 'none';
         $('log-box').innerHTML='> ✅ Система сброшена.\n'; $('log-box').style.display='block';
     };
     
-    // Тест обоих API
     $('testApiBtn').onclick = async ()=>{
         var b=$('log-box'); b.style.display='block'; b.innerHTML = '';
         b.innerHTML += '> Проверка Groq...\n';
@@ -878,7 +921,6 @@ if (/(?:батл|баттл|битв|спор|дуэл|дебат|сразись
             var r = await fetch('https://api.groq.com/openai/v1/models',{headers:{'Authorization':'Bearer '+S.key}}); 
             b.innerHTML+= r.ok ? '> ✅ Groq работает.\n' : `> ❌ Groq: ${r.status}\n`; 
         }catch(e){ b.innerHTML+="> ❌ Groq: "+e.message+"\n"; }
-        
         b.innerHTML += '\n> Проверка Gemini...\n';
         try{ 
             if (S.geminiKey && S.geminiKey !== "__GEMINI_API_KEY__") {
