@@ -30,8 +30,8 @@ jobs:
       - name: Install dependencies
         run: npm install
         
-      # 🔥 НАДЕЖНОЕ ВНЕДРЕНИЕ КЛЮЧА ЧЕРЕЗ NODE.JS 🔥
-      - name: Inject API Key
+      # 🔥 ВНЕДРЯЕМ ОБА КЛЮЧА
+      - name: Inject API Keys
         run: |
           node -e "
             const fs = require('fs');
@@ -39,8 +39,9 @@ jobs:
             if (fs.existsSync(p)) {
               let h = fs.readFileSync(p, 'utf8');
               h = h.replace('__GROQ_API_KEY__', '${{ secrets.GROQ_API_KEY }}');
+              h = h.replace('__GEMINI_API_KEY__', '${{ secrets.GEMINI_API_KEY }}');
               fs.writeFileSync(p, h);
-              console.log('API Key injected successfully!');
+              console.log('Keys injected successfully!');
             }
           "
         
@@ -59,22 +60,7 @@ jobs:
           
       - name: Permissions
         run: |
-          node -e "
-            const fs=require('fs'); 
-            let p='android/app/src/main/AndroidManifest.xml'; 
-            let c=fs.readFileSync(p,'utf8'); 
-            let perms=[
-              '<uses-permission android:name=\"android.permission.RECORD_AUDIO\" />', 
-              '<uses-permission android:name=\"android.permission.INTERNET\" />', 
-              '<uses-permission android:name=\"android.permission.VIBRATE\" />', 
-              '<uses-permission android:name=\"android.permission.POST_NOTIFICATIONS\" />'
-            ]; 
-            let m=perms.filter(x=>!c.includes(x)); 
-            if(m.length>0){ 
-              c=c.replace('<application',m.join('\n')+'\n<application'); 
-              fs.writeFileSync(p,c); 
-            }
-          "
+          node -e "const fs=require('fs'); let p='android/app/src/main/AndroidManifest.xml'; let c=fs.readFileSync(p,'utf8'); let perms=['<uses-permission android:name=\"android.permission.RECORD_AUDIO\" />','<uses-permission android:name=\"android.permission.INTERNET\" />','<uses-permission android:name=\"android.permission.VIBRATE\" />','<uses-permission android:name=\"android.permission.POST_NOTIFICATIONS\" />']; let m=perms.filter(x=>!c.includes(x)); if(m.length>0){ c=c.replace('<application',m.join('\n')+'\n<application'); fs.writeFileSync(p,c);}"
         
       - name: Sync Android
         run: npx cap sync android
