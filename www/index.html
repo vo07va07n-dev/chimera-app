@@ -116,6 +116,15 @@ textarea{border-radius:16px;resize:vertical;min-height:80px}
 
 <div class="modal" id="modal"><div class="mc">
 <h3>⚙️ Настройки</h3>
+
+<!-- 🔥 ВЫБОР ПРОВАЙДЕРА -->
+<label>Провайдер ИИ</label>
+<select id="inpProvider">
+    <option value="groq">Groq (быстрый, 100/день)</option>
+    <option value="gemini">Gemini (1500/день)</option>
+    <option value="auto">Авто (Groq → Gemini при лимите)</option>
+</select>
+
 <label>Пауза перед отправкой (сек)</label>
 <select id="inpPause">
 <option value="1">1 секунда</option><option value="1.5">1.5 секунды</option><option value="2">2 секунды</option><option value="3" selected>3 секунды</option><option value="5">5 секунд</option>
@@ -154,13 +163,19 @@ try {
     var nDev = cP.Device || null;
     var nNotif = cP.LocalNotifications || null;
 
-    var DEFAULT_KEY = "__GROQ_API_KEY__";
+    // 🔑 ДВА КЛЮЧА
+    var GROQ_KEY = "__GROQ_API_KEY__";
+    var GEMINI_KEY = "__GEMINI_API_KEY__";
     
     var S = { 
-        key:'', char:'butler', speaking:false, listening:false, 
+        key: GROQ_KEY, 
+        geminiKey: GEMINI_KEY,
+        provider: localStorage.getItem('p_provider') || 'groq',
+        char:'butler', speaking:false, listening:false, 
         apiAbort:null, autoSendTimer:null, history:[], 
         battery:'100', pauseTime:parseFloat(localStorage.getItem('p_pause')||'3'), 
-        isGameMode: false, autoDialogueActive: false, autoDialogueAbort: null 
+        isGameMode: false, autoDialogueActive: false, autoDialogueAbort: null,
+        currentProvider: '' // какой реально использовался последний раз
     };
     
     var sR = " ВАЖНО: Пиши только чистый текст. Запрещено использовать Markdown (звездочки *, решетки #), кавычки и апострофы. ОБЯЗАТЕЛЬНО используй запятые, точки, вопросительные и восклицательные знаки. СТРОГОЕ ПРАВИЛО: Общайся ИСКЛЮЧИТЕЛЬНО на русском языке.";
@@ -173,7 +188,7 @@ try {
         },
         teenager: { 
             name:"Подросток", emoji:"😎", pitch:1.2, rate:1.15, 
-            prompt:"Ты - Chimera, дерзкий современный подросток. Используй сленг: кринж, база, рофл, чилить, вайб. Отвечай игриво и с иронией, подкалывай пользователя." + sR, 
+            prompt:"Ты - Chimera, дерзкий современный подросток. Используй сленг: кринж, база, рофл, чилить, вайб. Отвечай игриво и с иронией." + sR, 
             hello:"Йо, чё как сам?" 
         },
         teacher: { 
@@ -196,13 +211,14 @@ try {
     if (nDev && nDev.getBatteryInfo) nDev.getBatteryInfo().then(i => { S.battery = Math.round(i.batteryLevel*100) + (i.isCharging?'(заряд)':'%'); }).catch(()=>{});
     if (nNotif && nNotif.requestPermissions) nNotif.requestPermissions().catch(()=>{});
 
-    S.key = DEFAULT_KEY;
-    
-    if (S.key === "__GROQ_API_KEY__" || !S.key) {
-        document.getElementById('status').textContent = '❌ Ключ не вшит!';
+    // Проверка ключей
+    if (!S.key || S.key === "__GROQ_API_KEY__") {
+        document.getElementById('status').textContent = '❌ Groq ключ не вшит!';
         document.getElementById('status').style.color = 'var(--rd)';
     }
+    
     if($('inpPause')) $('inpPause').value = S.pauseTime;
+    if($('inpProvider')) $('inpProvider').value = S.provider;
 
     window.toggleBtns = function() {
         var val = $('inp').value.trim();
@@ -277,6 +293,93 @@ try {
         return "";
     }
 
+    // ==========================================
+    // 🤖 УНИВЕРСАЛЬНЫЙ ВЫЗОВ ИИ (Groq / Gemini / Auto)
+    // ==========================================
+    async function callGroq(messages, options = {}) {
+        const body = {
+            model: options.model || 'openai/gpt-oss-120b',
+            messages: messages,
+            temperature: 0.8,
+            max_tokens: 600
+        };
+        const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+            method: 'POST',
+            signal: options.signal,
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + S.key },
+            body: JSON.stringify(body)
+        });
+        const txt = await res.text();
+        if (!res.ok) throw new Error(`Groq ${res.status}: ${txt.slice(0,150)}`);
+        const d = JSON.parse(txt);
+        return d.choices?.[0]?.message?.content || '';
+    }
+
+    async function callGemini(messages, options = {}) {
+        if (!S.geminiKey || S.geminiKey === "__GEMINI_API_KEY__") {
+            throw new Error('Gemini ключ не настроен');
+        }
+        const sys = messages.find(m => m.role === 'system')?.content || '';
+        const contents = messages.filter(m => m.role !== 'system').map(m => ({
+            role: m.role === 'assistant' ? 'model' : 'user',
+            parts: [{ text: m.content }]
+        }));
+        const model = options.model || 'gemini-2.0-flash';
+        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${S.geminiKey}`, {
+            method: 'POST',
+            signal: options.signal,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                system_instruction: sys ? { parts: [{ text: sys }] } : undefined,
+                contents: contents,
+                generationConfig: { temperature: 0.8, maxOutputTokens: 600 }
+            })
+        });
+        const txt = await res.text();
+        if (!res.ok) throw new Error(`Gemini ${res.status}: ${txt.slice(0,150)}`);
+        const d = JSON.parse(txt);
+        return d.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    }
+
+    // Универсальный вызов
+    async function callLLM(messages, options = {}) {
+        const provider = S.provider;
+        
+        if (provider === 'gemini') {
+            try {
+                S.currentProvider = 'gemini';
+                return await callGemini(messages, options);
+            } catch(e) {
+                console.warn('Gemini failed:', e.message);
+                // Если Gemini упал — пробуем Groq
+                if (S.key && S.key !== "__GROQ_API_KEY__") {
+                    S.currentProvider = 'groq';
+                    return await callGroq(messages, options);
+                }
+                throw e;
+            }
+        }
+        
+        if (provider === 'auto') {
+            try {
+                S.currentProvider = 'groq';
+                return await callGroq(messages, options);
+            } catch(e) {
+                console.warn('Groq failed:', e.message);
+                // Авто-fallback на Gemini
+                if (S.geminiKey && S.geminiKey !== "__GEMINI_API_KEY__") {
+                    S.currentProvider = 'gemini';
+                    return await callGemini(messages, options);
+                }
+                throw e;
+            }
+        }
+        
+        // provider === 'groq' (по умолчанию)
+        S.currentProvider = 'groq';
+        return await callGroq(messages, options);
+    }
+
     function rC() {
         var r = $('chars-row'); if(!r) return; r.innerHTML='';
         for(let k in CHARS) {
@@ -338,10 +441,7 @@ try {
         vib(); S.speaking=true; $('orb').classList.add('active'); $('status').textContent='Говорит...';
         var st = setTimeout(()=>{ if(S.speaking) fR(); }, 12000);
         var c = cT(t);
-        // SSML-теги <break> работают только в нативном плагине, не в Web API
-        if (nTTS) {
-            c = c.replace(/\.\.\./g, '. <break time="800ms"/> ');
-        }
+        if (nTTS) c = c.replace(/\.\.\./g, '. <break time="800ms"/> ');
         try {
             if(nTTS) {
                 await nTTS.speak({text:c, lang:'ru-RU', rate:CHARS[S.char].rate, pitch:CHARS[S.char].pitch});
@@ -444,38 +544,73 @@ try {
     async function processMathImage(base64Image) {
         aB("📷 [Фото отправлено на анализ]", 'u');
         $('orb').classList.add('thinking'); $('status').textContent='Сканирую...';
-        var visionPrompt = `Ты — идеальный OCR-сканер математики. Твоя задача — переписать ВСЕ формулы и уравнения с фото в виде обычного текста НА РУССКОМ ЯЗЫКЕ. Дроби пиши так: "числитель/знаменатель". Не описывай картинку.`;
-        var cm1 = [{ role: 'system', content: visionPrompt }, { role: 'user', content: [{ type: 'text', text: 'Выдай математический текст.' }, { type: 'image_url', image_url: { url: base64Image } }] }];
+        
+        // OCR через Gemini (лучше видит) или Qwen на Groq
+        var extractedText = '';
         try {
-            var res1 = await fetch('https://api.groq.com/openai/v1/chat/completions', { method:'POST', headers:{'Content-Type':'application/json', 'Authorization':'Bearer '+S.key}, body: JSON.stringify({ model: 'qwen/qwen3.8-27b', messages: cm1 }) });
-            var d1 = await res1.json();
-            if(d1.error) { aM('ОШИБКА Vision: ' + d1.error.message, 'p'); fR(); return; }
-            var extractedText = cT(d1.choices[0].message.content);
-            aM(`📝 Распознано с фото:\n${extractedText}`, 'p', false);
-            S.history.push({ role: 'user', content: 'Вот задание с фото: ' + extractedText });
-            sH(); // ✅ ИСПРАВЛЕНО: было saveHistory()
-            $('status').textContent='Решаю...';
-            var solvePrompt = CHARS[S.char].prompt + `\n\nПользователь прислал фото с математикой. OCR-сканер распознал следующий текст:\n"${extractedText}"\n\nТвоя задача: реши эти примеры и уравнения пошагово. ОТВЕЧАЙ ТОЛЬКО НА РУССКОМ ЯЗЫКЕ.`;
-            var cm2 = [{ role: 'system', content: solvePrompt }, { role: 'user', content: 'Реши эти задания.' }];
-            var res2 = await fetch('https://api.groq.com/openai/v1/chat/completions', { method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+S.key}, body: JSON.stringify({ model: 'openai/gpt-oss-120b', messages: cm2 }) });
-            var d2 = await res2.json();
-            $('orb').classList.remove('thinking');
-            if(d2.error) { aM('ОШИБКА: ' + d2.error.message, 'p'); fR(); return; }
-            var solution = cT(d2.choices[0].message.content);
-            aM(solution, 'p');
-            S.history.push({ role: 'assistant', content: solution }); 
-            sH(); // ✅ ИСПРАВЛЕНО: было saveHistory()
-        } catch(e) { $('orb').classList.remove('thinking'); aM('ОШИБКА СЕТИ: ' + e.message, 'p'); fR(); }
-    }
+            if (S.geminiKey && S.geminiKey !== "__GEMINI_API_KEY__") {
+                // Gemini Vision
+                const model = 'gemini-2.0-flash';
+                const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${S.geminiKey}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{
+                            parts: [
+                                { text: 'Ты — OCR-сканер математики. Перепиши ВСЕ формулы и уравнения с фото в виде обычного текста НА РУССКОМ ЯЗЫКЕ. Дроби пиши так: "числитель/знаменатель". Не описывай картинку.' },
+                                { inline_data: { mime_type: 'image/jpeg', data: base64Image.replace(/^data:image\/[^;]+;base64,/, '') } }
+                            ]
+                        }]
+                    })
+                });
+                const d = await res.json();
+                extractedText = d.candidates?.[0]?.content?.parts?.[0]?.text || '';
+            }
+        } catch(e) { console.warn('Gemini Vision failed', e); }
 
-    // ==========================================
-    // 🔍 УЛУЧШЕННЫЙ ПОИСК ПЕРСОНАЖА
-    // ==========================================
-    function findCharKey(name) {
-        const n = name.trim().toLowerCase();
-        let exact = Object.keys(CHARS).find(k => CHARS[k].name.toLowerCase() === n);
-        if (exact) return exact;
-        return Object.keys(CHARS).find(k => CHARS[k].name.toLowerCase().includes(n));
+        // Fallback на Qwen (Groq) если Gemini не справился
+        if (!extractedText) {
+            try {
+                const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+                    method:'POST', headers:{'Content-Type':'application/json', 'Authorization':'Bearer '+S.key},
+                    body: JSON.stringify({
+                        model: 'qwen/qwen3.8-27b',
+                        messages: [
+                            { role: 'system', content: 'Ты — OCR-сканер математики. Перепиши все формулы текстом на русском. Дроби: "a/b".' },
+                            { role: 'user', content: [{ type: 'text', text: 'Выдай математический текст.' }, { type: 'image_url', image_url: { url: base64Image } }] }
+                        ]
+                    })
+                });
+                const d = await res.json();
+                extractedText = d.choices?.[0]?.message?.content || '';
+            } catch(e) { console.warn('Qwen Vision failed', e); }
+        }
+
+        $('orb').classList.remove('thinking');
+        if (!extractedText) { aM('❌ Не удалось распознать текст', 'p'); fR(); return; }
+
+        extractedText = cT(extractedText);
+        aM(`📝 Распознано с фото:\n${extractedText}`, 'p', false);
+        S.history.push({ role: 'user', content: 'Вот задание с фото: ' + extractedText });
+        sH();
+
+        // Решение через универсальный вызов
+        $('orb').classList.add('thinking'); $('status').textContent='Решаю...';
+        try {
+            const sys = CHARS[S.char].prompt + `\n\nПользователь прислал фото с математикой. OCR распознал:\n"${extractedText}"\n\nРеши это пошагово. ОТВЕЧАЙ ТОЛЬКО НА РУССКОМ.`;
+            const reply = await callLLM([
+                { role: 'system', content: sys },
+                { role: 'user', content: 'Реши эти задания.' }
+            ]);
+            $('orb').classList.remove('thinking');
+            const solution = cT(reply);
+            aM(solution, 'p');
+            S.history.push({ role: 'assistant', content: solution }); sH();
+        } catch(e) {
+            $('orb').classList.remove('thinking');
+            aM('ОШИБКА: ' + e.message, 'p');
+        }
+        fR();
     }
 
     // ==========================================
@@ -499,22 +634,23 @@ try {
             return;
         }
 
-        if(!S.key || S.key === "__GROQ_API_KEY__") return aM("❌ Ключ не вшит.", 'p');
+        if(!S.key || S.key === "__GROQ_API_KEY__") {
+            if (!S.geminiKey || S.geminiKey === "__GEMINI_API_KEY__") {
+                return aM("❌ Ни один ключ не вшит.", 'p');
+            }
+        }
         if (detectInjection(t)) return aM("⚠️ Взлом заблокирован.", 'p');
 
         vib(); $('inp').value=''; toggleBtns(); aM(t,'u');
 
-        // 🎭 АВТОДИАЛОГ: понимает ЛЮБЫЕ формулировки
+        // 🎭 АВТОДИАЛОГ
         if (/(?:запусти|начни|сделай|устрой)\s+диалог/i.test(t)) {
             const low = t.toLowerCase();
             const found = Object.keys(CHARS).filter(k => low.includes(CHARS[k].name.toLowerCase()));
             let p1_key = null, p2_key = null;
 
-            if (found.length >= 2) {
-                p1_key = found[0]; p2_key = found[1];
-            } else if (found.length === 1) {
-                p1_key = S.char; p2_key = found[0];
-            }
+            if (found.length >= 2) { p1_key = found[0]; p2_key = found[1]; }
+            else if (found.length === 1) { p1_key = S.char; p2_key = found[0]; }
 
             if (p1_key && p2_key && p1_key !== p2_key) {
                 aM(`🎭 Начинаю диалог между ${CHARS[p1_key].name} и ${CHARS[p2_key].name}.\n(Скажи "Стоп" или нажми красную кнопку, чтобы прервать)`, 'p', false);
@@ -534,7 +670,7 @@ try {
 
         if (/давай сыграем|города|данетки|квест|игра/i.test(t) && !S.isGameMode) {
             S.isGameMode = true;
-            aM("🎲 Режим Ведущего активирован. Правила игры будут соблюдаться. Погнали!\n(Скажи \"Выйти из игры\", чтобы закончить)", 'p');
+            aM("🎲 Режим Ведущего активирован. Погнали!\n(Скажи \"Выйти из игры\", чтобы закончить)", 'p');
         }
 
         $('orb').classList.add('thinking'); $('status').textContent='Думает...';
@@ -543,29 +679,35 @@ try {
         if (/найди|поищи|погугли|кто такой|что такое|новости/i.test(t)) { $('status').textContent = 'Ищу...'; let s = await searchWeb(t); if (s) contextData += `\n\n[ПОИСК: ${s}]`; }
 
         S.apiAbort = new AbortController(); 
-        var to = setTimeout(()=>{ S.apiAbort.abort(); fR(); }, 20000);
+        var to = setTimeout(()=>{ S.apiAbort.abort(); fR(); }, 25000);
 
         var sys = CHARS[S.char].prompt + ` [Инфо: заряд телефона ${S.battery}.]` + contextData;
-        
-        if (S.isGameMode) {
-            sys += `\n\nРЕЖИМ ИГРЫ: Ты сейчас выступаешь как Game Master. Веди игру "Города" или "Данетки", запоминая ответы пользователя. Будь креативным. Запрещено выходить из роли!`;
-        }
+        if (S.isGameMode) sys += `\n\nРЕЖИМ ИГРЫ: Ты Game Master. Веди игру, запоминая ответы. Запрещено выходить из роли!`;
 
         var cm = [{role:'system', content:sys}].concat(S.history.slice(-6));
         
-        fetch('https://api.groq.com/openai/v1/chat/completions', {
-            method:'POST', signal:S.apiAbort.signal,
-            headers:{'Content-Type':'application/json','Authorization':'Bearer '+S.key},
-            body: JSON.stringify({model:'openai/gpt-oss-120b', messages:cm})
-        }).then(r=>r.json()).then(d=>{
+        try {
+            const rp = await callLLM(cm, { signal: S.apiAbort.signal });
+            clearTimeout(to);
+            $('orb').classList.remove('thinking');
+            if (rp) { 
+                const clean = cT(rp); 
+                aM(clean,'p'); 
+                spk(clean);
+                // Показываем, кто ответил (маленькая подсказка в статусе)
+                if (S.provider === 'auto') {
+                    setTimeout(()=>setStatus(S.currentProvider === 'gemini' ? '⚡ Gemini' : '🚀 Groq'), 2000);
+                }
+            }
+        } catch(e) {
             clearTimeout(to); $('orb').classList.remove('thinking');
-            if(d.error) { aM('ОШИБКА: '+d.error.message,'p'); fR(); return; }
-            var rp = cT(d.choices[0].message.content); aM(rp,'p'); spk(rp);
-        }).catch(e=>{ clearTimeout(to); fR(); aM('ОШИБКА СЕТИ: '+e.message,'p'); });
+            aM('ОШИБКА: ' + e.message, 'p');
+            setStatus('Ошибка');
+        }
     }
 
     // ==========================================
-    // 🎭 ЛОГИКА АВТОДИАЛОГА (С ОСТАНОВКОЙ)
+    // 🎭 АВТОДИАЛОГ (использует callLLM)
     // ==========================================
     async function runAutoDialogue(char1Key, char2Key, turns = 4, signal) {
         let c1 = CHARS[char1Key]; let c2 = CHARS[char2Key];
@@ -576,24 +718,14 @@ try {
             
             $('status').textContent = `[${c1.name}] говорит...`;
             
-            let prompt1 = c1.prompt + `\n\nТы общаешься с ${c2.name}. Ответь ему коротко и в своем стиле.`;
+            let prompt1 = c1.prompt + `\n\nТы общаешься с ${c2.name}. Ответь ему коротко.`;
             let cm1 = [{role:'system', content: prompt1}, ...history.slice(-4)];
             if (history.length === 0) cm1.push({role:'user', content: `Начни диалог с ${c2.name}.`});
             
             try {
-                let res1 = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-                    method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+S.key},
-                    signal: signal,
-                    body: JSON.stringify({model:'openai/gpt-oss-120b', messages:cm1})
-                });
+                let ans1 = await callLLM(cm1, { signal });
                 if (!S.autoDialogueActive || signal.aborted) break;
-                
-                let d1 = await res1.json();
-                if(d1.error) { 
-                    aM('⚠️ Ошибка API: ' + (d1.error.message || 'неизвестно'), 'p', false); 
-                    break;
-                }
-                let ans1 = cT(d1.choices[0].message.content);
+                ans1 = cT(ans1);
                 aM(`[${c1.name}]: ${ans1}`, 'p', false);
                 history.push({role:'assistant', content:`[${c1.name}]: ${ans1}`});
                 
@@ -604,28 +736,16 @@ try {
                 let prompt2 = c2.prompt + `\n\nТы общаешься с ${c1.name}. Ответь ему.`;
                 let cm2 = [{role:'system', content: prompt2}, ...history.slice(-4)];
                 
-                let res2 = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-                    method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+S.key},
-                    signal: signal,
-                    body: JSON.stringify({model:'openai/gpt-oss-120b', messages:cm2})
-                });
+                let ans2 = await callLLM(cm2, { signal });
                 if (!S.autoDialogueActive || signal.aborted) break;
-                
-                let d2 = await res2.json();
-                if(d2.error) { 
-                    aM('⚠️ Ошибка API: ' + (d2.error.message || 'неизвестно'), 'p', false); 
-                    break;
-                }
-                let ans2 = cT(d2.choices[0].message.content);
+                ans2 = cT(ans2);
                 aM(`[${c2.name}]: ${ans2}`, 'p', false);
                 history.push({role:'assistant', content:`[${c2.name}]: ${ans2}`});
                 
                 await spkAs(ans2, c2, signal);
 
             } catch(e) { 
-                if (e.name !== 'AbortError') {
-                    aM('⚠️ Ошибка связи: ' + e.message, 'p', false);
-                }
+                if (e.name !== 'AbortError') aM('⚠️ ' + e.message, 'p', false);
                 break; 
             }
         }
@@ -653,9 +773,7 @@ try {
     async function spkAs(text, charProfile, signal) {
         if(!text || (signal && signal.aborted)) return;
         var c = cT(text);
-        if (nTTS) {
-            c = c.replace(/\.\.\./g, '. <break time="800ms"/> ');
-        }
+        if (nTTS) c = c.replace(/\.\.\./g, '. <break time="800ms"/> ');
         try {
             if(nTTS) {
                 await nTTS.speak({text:c, lang:'ru-RU', rate:charProfile.rate, pitch:charProfile.pitch});
@@ -714,7 +832,13 @@ try {
     $('closeBtn').onclick = ()=>{ vib(); $('modal').style.display='none'; };
     
     $('saveBtn').onclick = ()=>{ 
-        vib(); S.pauseTime = parseFloat($('inpPause').value); localStorage.setItem('p_pause', S.pauseTime); $('modal').style.display='none'; aM('Настройки сохранены','p'); 
+        vib(); 
+        S.pauseTime = parseFloat($('inpPause').value); 
+        S.provider = $('inpProvider').value;
+        localStorage.setItem('p_pause', S.pauseTime); 
+        localStorage.setItem('p_provider', S.provider);
+        $('modal').style.display='none'; 
+        aM(`Настройки сохранены. Провайдер: ${S.provider === 'auto' ? 'Авто (Groq → Gemini)' : S.provider === 'gemini' ? 'Gemini' : 'Groq'}`, 'p'); 
     };
 
     $('addCharBtn').onclick = ()=>{
@@ -744,11 +868,27 @@ try {
         $('stopAutoBtn').style.display = 'none';
         $('log-box').innerHTML='> ✅ Система сброшена.\n'; $('log-box').style.display='block';
     };
+    
+    // Тест обоих API
     $('testApiBtn').onclick = async ()=>{
-        if(!S.key || S.key === "__GROQ_API_KEY__") return alert("Ключ не вшит!");
-        var b=$('log-box'); b.style.display='block'; b.innerHTML='> Проверка API...\n';
-        try{ var r = await fetch('https://api.groq.com/openai/v1/models',{headers:{'Authorization':'Bearer '+S.key}}); b.innerHTML+= r.ok ? '> ✅ API работает.\n' : `> ❌ Ошибка: ${r.status}\n`; }catch(e){ b.innerHTML+="> ❌ Сеть: "+e.message+"\n"; }
+        var b=$('log-box'); b.style.display='block'; b.innerHTML = '';
+        b.innerHTML += '> Проверка Groq...\n';
+        try{ 
+            var r = await fetch('https://api.groq.com/openai/v1/models',{headers:{'Authorization':'Bearer '+S.key}}); 
+            b.innerHTML+= r.ok ? '> ✅ Groq работает.\n' : `> ❌ Groq: ${r.status}\n`; 
+        }catch(e){ b.innerHTML+="> ❌ Groq: "+e.message+"\n"; }
+        
+        b.innerHTML += '\n> Проверка Gemini...\n';
+        try{ 
+            if (S.geminiKey && S.geminiKey !== "__GEMINI_API_KEY__") {
+                var r2 = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${S.geminiKey}`); 
+                b.innerHTML+= r2.ok ? '> ✅ Gemini работает.\n' : `> ❌ Gemini: ${r2.status}\n`; 
+            } else {
+                b.innerHTML += '> ⚠️ Gemini ключ не вшит\n';
+            }
+        }catch(e){ b.innerHTML+="> ❌ Gemini: "+e.message+"\n"; }
     };
+    
     $('testTtsBtn').onclick = async ()=>{
         var b=$('log-box'); b.style.display='block'; b.innerHTML='> Проверка TTS...\n';
         try{ if(nTTS){ await nTTS.speak({text:"Проверка связи",lang:'ru-RU'}); b.innerHTML+='> ✅ TTS работает.\n'; } else b.innerHTML+='> ❌ TTS нет.\n'; }catch(e){ b.innerHTML+="> ❌ Ошибка: "+e.message+"\n"; }
