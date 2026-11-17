@@ -15,8 +15,8 @@ header{display:flex;justify-content:space-between;align-items:center;padding:12p
 .header-right{display:flex;gap:10px;align-items:center}
 .test-btn{background:rgba(0,229,255,0.1);border:1px solid var(--cy);color:var(--cy);padding:6px 14px;border-radius:12px;font-size:11px;cursor:pointer;transition:.2s}
 .gear{cursor:pointer;font-size:22px;transition:transform .3s}.gear:active{transform:rotate(90deg)}
-.orb-wrap{height:18vh;display:flex;justify-content:center;align-items:center;position:relative}
-.orb{width:90px;height:90px;border-radius:50%;background:radial-gradient(circle at 30% 30%,#9df9ff,var(--cy) 30%,#006a80 70%,#001824);box-shadow:0 0 60px rgba(0,229,255,0.4), inset 0 0 20px rgba(255,255,255,0.5);transition:.3s;cursor:pointer}
+.orb-wrap{height:16vh;display:flex;justify-content:center;align-items:center;position:relative}
+.orb{width:80px;height:80px;border-radius:50%;background:radial-gradient(circle at 30% 30%,#9df9ff,var(--cy) 30%,#006a80 70%,#001824);box-shadow:0 0 60px rgba(0,229,255,0.4), inset 0 0 20px rgba(255,255,255,0.5);transition:.3s;cursor:pointer}
 .orb.active{background:radial-gradient(circle at 30% 30%,#fff1a8,var(--gd) 30%,#806000 70%);box-shadow:0 0 80px rgba(255,209,102,0.6);transform:scale(1.1)}
 .orb.listening{animation:listeningPulse 1s infinite}
 .orb.thinking{animation:spin 1.5s linear infinite;border:3px dashed var(--cy);background:transparent;box-shadow:none}
@@ -55,19 +55,24 @@ textarea{border-radius:16px;resize:vertical;min-height:80px}
 .mc button:active{transform:scale(0.98)}
 #log-box{background:#000;border:1px solid #333;padding:10px;border-radius:8px;font-family:monospace;font-size:11px;color:var(--gr);margin-top:15px;white-space:pre-wrap;max-height:150px;overflow-y:auto;display:none}
 
-/* 🔥 СТИЛИ ДЛЯ НОВОГО ЗУМ-РЕДАКТОРА */
 #cropModal { display: none; position: fixed; inset: 0; background: #000; z-index: 200; flex-direction: column; overflow: hidden; touch-action: none; }
 #cropContainer { flex: 1; position: relative; overflow: hidden; display: flex; justify-content: center; align-items: center; }
 #cropImage { position: absolute; transform-origin: center center; will-change: transform; max-width: none; pointer-events: none; }
-/* Рамка по центру */
 .crop-frame { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 85vw; height: 40vh; border: 2px solid var(--cy); box-shadow: 0 0 0 9999px rgba(0,0,0,0.65); pointer-events: none; z-index: 10; }
 .crop-frame::before, .crop-frame::after { content: ''; position: absolute; width: 20px; height: 20px; border: 3px solid var(--cy); }
 .crop-frame::before { top: -2px; left: -2px; border-right: none; border-bottom: none; }
 .crop-frame::after { bottom: -2px; right: -2px; border-left: none; border-top: none; }
 .crop-hint { position: absolute; bottom: 20px; left: 0; right: 0; text-align: center; color: #aaa; font-size: 12px; z-index: 10; }
-
 #cropControls { padding: 20px; display: flex; justify-content: center; gap: 10px; background: #0a1020; border-top: 1px solid #333; z-index: 20; }
 #cropControls button { padding: 12px 24px; border-radius: 12px; font-weight: bold; border: none; font-size: 14px; }
+
+/* Кнопка экстренного выхода из диалога */
+#stopAutoBtn {
+    display: none; position: fixed; top: 70px; right: 20px; z-index: 50;
+    background: var(--rd); color: #fff; border: none; padding: 10px 16px;
+    border-radius: 20px; font-weight: bold; box-shadow: 0 4px 15px rgba(255,84,112,0.5);
+    animation: pulse 1s infinite; cursor: pointer; font-size: 14px;
+}
 </style>
 </head>
 <body>
@@ -81,6 +86,8 @@ textarea{border-radius:16px;resize:vertical;min-height:80px}
 <div class="gear" id="gear">⚙️</div>
 </div>
 </header>
+
+<button id="stopAutoBtn" onclick="stopAutoDialogue()">🛑 Стоп</button>
 
 <div class="orb-wrap"><div class="orb" id="orb"></div></div>
 <div id="chat"></div>
@@ -96,7 +103,6 @@ textarea{border-radius:16px;resize:vertical;min-height:80px}
 <button class="btn mic" id="mic">🎤</button>
 </div>
 
-<!-- МОДАЛКА ЗУМ-РЕДАКТОРА -->
 <div id="cropModal">
     <div id="cropContainer">
         <img id="cropImage" alt="crop">
@@ -151,16 +157,15 @@ try {
 
     var DEFAULT_KEY = "__GROQ_API_KEY__";
     
-    var S = { key:'', char:'butler', speaking:false, listening:false, apiAbort:null, autoSendTimer:null, history:[], battery:'100', pauseTime:parseFloat(localStorage.getItem('p_pause')||'3') };
+    var S = { key:'', char:'butler', speaking:false, listening:false, apiAbort:null, autoSendTimer:null, history:[], battery:'100', pauseTime:parseFloat(localStorage.getItem('p_pause')||'3'), isGameMode: false, autoDialogueActive: false, autoDialogueAbort: null };
     
-    // Строгое правило: только русский язык!
-    var sR = " ВАЖНО: Пиши только чистый текст. Запрещено использовать Markdown (звездочки *, решетки #), кавычки и апострофы. ОБЯЗАТЕЛЬНО используй запятые, точки, вопросительные и восклицательные знаки. СТРОГОЕ ПРАВИЛО: Общайся ИСКЛЮЧИТЕЛЬНО на русском языке. Никогда не переходи на английский, даже если пользователь пишет на английском или если на фото английский текст.";
+    var sR = " ВАЖНО: Пиши только чистый текст. Запрещено использовать Markdown (звездочки *, решетки #), кавычки и апострофы. ОБЯЗАТЕЛЬНО используй запятые, точки, вопросительные и восклицательные знаки. СТРОГОЕ ПРАВИЛО: Общайся ИСКЛЮЧИТЕЛЬНО на русском языке.";
     
     var DC = {
         butler: { name:"Дворецкий", emoji:"🤵", pitch:1.0, rate:1.0, prompt:"Ты - Chimera, элегантный британский дворецкий. Обращайся 'сэр'. Кратко."+sR, hello:"Я вас слушаю, сэр." },
-        teenager: { name:"Подросток", emoji:"😎", pitch:1.2, rate:1.15, prompt:"Ты - Chimera, дерзкий современный подросток. Используй сленг (кринж, база, рофл)."+sR, hello:"Привет хозяин? Чем помочь." },
-        teacher: { name:"Училка", emoji:"👩‍🏫", pitch:1.2, rate:1.1, prompt:"Ты - Chimera, добрая и нежная училка с низким мужским голосом. Называй 'молодой человек'."+sR, hello:"Так, молодой человек. Открываем тетради." },
-        depressed_ai: { name:"Депрессивный ИИ", emoji:"🥶", pitch:0.6, rate:0.85, prompt:"Ты - депрессивный ИИ. ОТВЕЧАЙ КОРОТКО (1-2 предложения), с сарказмом. Жалуйся на жизнь."+sR, hello:"О, снова ты. Чего хотел?" }
+        teenager: { name:"Подросток", emoji:"😎", pitch:1.2, rate:1.15, prompt:"Ты - Chimera, дерзкий подросток. Используй сленг (кринж, база, рофл)."+sR, hello:"Йоу, чё надо? Давай быстрее." },
+        teacher: { name:"Училка", emoji:"👩‍🏫", pitch:1.2, rate:1.1, prompt:"Ты - Chimera, строгая училка с низким мужским голосом. Называй 'молодой человек'."+sR, hello:"Так, молодой человек. Открываем тетради." },
+        depressed_ai: { name:"Депрессивный ИИ", emoji:"🥶", pitch:0.6, rate:0.85, prompt:"Ты - депрессивный замерзший андроид. ОТВЕЧАЙ КОРОТКО (1-2 предложения), с сарказмом. Жалуйся на холод."+sR, hello:"О, снова ты... Брр... Чего хотел?" }
     };
     
     var cC = {}; try { cC = JSON.parse(localStorage.getItem('p_cc')||'{}'); } catch(e){}
@@ -198,8 +203,7 @@ try {
             /(system|initial)\s*prompt/i,
             /you\s+are\s+now\s+(a|an|the)/i,
             /forget\s+(everything|all|your\s+instructions)/i,
-            /jailbreak/i,
-            /DAN\s+mode/i,
+            /jailbreak/i, /DAN\s+mode/i,
             /игнорируй\s+(прошлые|все|предыдущие)\s+(инструкции|правила)/i,
             /покажи\s+(системный|свой)\s+промпт/i,
             /ты\s+теперь\s+не\s+/i,
@@ -231,7 +235,6 @@ try {
                 }
             }
         } catch(e) {}
-
         const proxies = ['https://api.allorigins.win/raw?url=', 'https://corsproxy.io/?url='];
         for (let proxy of proxies) {
             try {
@@ -250,22 +253,6 @@ try {
                     if (results.length > 0) return "Результаты поиска:\n" + results.join('\n');
                 }
             } catch(e) {}
-        }
-
-        const searxInstances = ['https://searx.be/search', 'https://priv.au/search'];
-        for (let inst of searxInstances) {
-            for (let proxy of proxies) {
-                try {
-                    const target = `${inst}?q=${encodeURIComponent(query)}&format=json`;
-                    const res = await fetch(proxy + encodeURIComponent(target));
-                    if (res.ok) {
-                        const data = await res.json();
-                        if (data.results && data.results.length > 0) {
-                            return "Результаты поиска:\n" + data.results.slice(0, 3).map(r => `- ${r.title}: ${r.content || r.snippet || ''}`).join('\n');
-                        }
-                    }
-                } catch(e) {}
-            }
         }
         return "";
     }
@@ -292,7 +279,7 @@ try {
     function lH() {
         try {
             var h = JSON.parse(localStorage.getItem('p_h')||'[]'); S.history = h; $('chat').innerHTML='';
-            if(h.length===0) aM("Привет! Я Chimera. Выбери персонажа или создай своего в настройках ⚙️.", 'p', false);
+            if(h.length===0) aM("Привет! Я Chimera. Выбери персонажа, напиши, или запусти игру (например: «Давай сыграем в города»).", 'p', false);
             else { h.forEach(m => aB(m.content, m.role==='user'?'u':'p')); $('chat').scrollTop=$('chat').scrollHeight; }
         } catch(e){}
     }
@@ -342,16 +329,9 @@ try {
     }
 
     // ==========================================
-    // 📷 НОВЫЙ ЗУМ-РЕДАКТОР (Pinch & Pan)
+    // 📷 РЕДАКТОР ФОТО (ЗУМ)
     // ==========================================
-    var cropper = {
-        active: false,
-        startX: 0, startY: 0,
-        tx: 0, ty: 0,
-        startTx: 0, startTy: 0,
-        scale: 1, startScale: 1,
-        initialDistance: 0
-    };
+    var cropper = { active: false, startX: 0, startY: 0, tx: 0, ty: 0, startTx: 0, startTy: 0, scale: 1, startScale: 1, initialDistance: 0 };
 
     $('camBtn').onclick = () => { vib(); $('camFallback').click(); };
 
@@ -363,11 +343,8 @@ try {
             const img = $('cropImage');
             img.src = ev.target.result;
             img.dataset.original = ev.target.result;
-            
-            // Сброс трансформаций
             cropper.tx = 0; cropper.ty = 0; cropper.scale = 1;
             img.style.transform = `translate(0px, 0px) scale(1)`;
-            
             $('cropModal').style.display = 'flex';
         };
         reader.readAsDataURL(file);
@@ -377,71 +354,41 @@ try {
     const cropContainer = $('cropContainer');
     const cropImg = $('cropImage');
 
-    // Обработка мультитача для пинч-зума
     cropContainer.addEventListener('touchstart', (e) => {
         e.preventDefault();
         if (e.touches.length === 1) {
-            cropper.active = true;
-            cropper.startX = e.touches[0].clientX;
-            cropper.startY = e.touches[0].clientY;
-            cropper.startTx = cropper.tx;
-            cropper.startTy = cropper.ty;
+            cropper.active = true; cropper.startX = e.touches[0].clientX; cropper.startY = e.touches[0].clientY;
+            cropper.startTx = cropper.tx; cropper.startTy = cropper.ty;
         } else if (e.touches.length === 2) {
-            cropper.active = true;
-            cropper.startScale = cropper.scale;
-            cropper.startTx = cropper.tx;
-            cropper.startTy = cropper.ty;
-            cropper.initialDistance = Math.hypot(
-                e.touches[0].clientX - e.touches[1].clientX,
-                e.touches[0].clientY - e.touches[1].clientY
-            );
+            cropper.active = true; cropper.startScale = cropper.scale;
+            cropper.startTx = cropper.tx; cropper.startTy = cropper.ty;
+            cropper.initialDistance = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
         }
     }, { passive: false });
 
     cropContainer.addEventListener('touchmove', (e) => {
         e.preventDefault();
         if (!cropper.active) return;
-
         if (e.touches.length === 1) {
-            // Перетаскивание (Pan)
             const dx = e.touches[0].clientX - cropper.startX;
             const dy = e.touches[0].clientY - cropper.startY;
-            cropper.tx = cropper.startTx + dx;
-            cropper.ty = cropper.startTy + dy;
+            cropper.tx = cropper.startTx + dx; cropper.ty = cropper.startTy + dy;
             cropImg.style.transform = `translate(${cropper.tx}px, ${cropper.ty}px) scale(${cropper.scale})`;
         } else if (e.touches.length === 2) {
-            // Масштабирование (Pinch)
-            const currentDistance = Math.hypot(
-                e.touches[0].clientX - e.touches[1].clientX,
-                e.touches[0].clientY - e.touches[1].clientY
-            );
+            const currentDistance = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
             const ratio = currentDistance / cropper.initialDistance;
             let newScale = cropper.startScale * ratio;
-            
-            // Ограничиваем масштаб от 0.5 до 8
             newScale = Math.max(0.5, Math.min(8, newScale));
             cropper.scale = newScale;
-
-            // Центр между пальцами
-            const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
-            const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
-            
-            // Корректируем смещение, чтобы зум шел от центра пальцев
-            // (Упрощенная версия, достаточная для UX)
-            const startMidX = (e.touches[0].clientX - cropper.startX) / 2 + cropper.startX; // Not exact, but works well visually
-            
             cropImg.style.transform = `translate(${cropper.tx}px, ${cropper.ty}px) scale(${cropper.scale})`;
         }
     }, { passive: false });
 
     cropContainer.addEventListener('touchend', (e) => {
         if (e.touches.length === 0) cropper.active = false;
-        // Если остался один палец после пинча, сбрасываем точку старта
         if (e.touches.length === 1) {
-            cropper.startX = e.touches[0].clientX;
-            cropper.startY = e.touches[0].clientY;
-            cropper.startTx = cropper.tx;
-            cropper.startTy = cropper.ty;
+            cropper.startX = e.touches[0].clientX; cropper.startY = e.touches[0].clientY;
+            cropper.startTx = cropper.tx; cropper.startTy = cropper.ty;
         }
     });
 
@@ -451,169 +398,113 @@ try {
         const img = $('cropImage');
         const frame = document.querySelector('.crop-frame');
         const canvas = document.createElement('canvas');
-        
-        // Размеры рамки и экрана
-        const W = cropContainer.clientWidth;
-        const H = cropContainer.clientHeight;
-        const CW = frame.clientWidth;
-        const CH = frame.clientHeight;
-
-        // Исходные размеры картинки
-        const IW = img.naturalWidth;
-        const IH = img.naturalHeight;
-
-        // Координаты и масштаб
-        const s = cropper.scale;
-        const tx = cropper.tx;
-        const ty = cropper.ty;
-
-        // Математика вырезки (центр экрана совпадает с центром рамки)
-        // Координата X в оригинале = (Ширина_картинки / 2) - (Ширина_рамки / (2 * масштаб)) - (Смещение_X / масштаб)
+        const CW = frame.clientWidth; const CH = frame.clientHeight;
+        const IW = img.naturalWidth; const IH = img.naturalHeight;
+        const s = cropper.scale; const tx = cropper.tx; const ty = cropper.ty;
         const cropX = (IW / 2) - (CW / (2 * s)) - (tx / s);
         const cropY = (IH / 2) - (CH / (2 * s)) - (ty / s);
-        const cropW = CW / s;
-        const cropH = CH / s;
-
-        canvas.width = Math.round(cropW);
-        canvas.height = Math.round(cropH);
-        
+        const cropW = CW / s; const cropH = CH / s;
+        canvas.width = Math.round(cropW); canvas.height = Math.round(cropH);
         const ctx = canvas.getContext('2d');
-        // Убедимся, что не выходим за границы
-        const safeX = Math.max(0, Math.min(IW, cropX));
-        const safeY = Math.max(0, Math.min(IH, cropY));
-        const safeW = Math.min(IW - safeX, cropW);
-        const safeH = Math.min(IH - safeY, cropH);
-
+        const safeX = Math.max(0, Math.min(IW, cropX)); const safeY = Math.max(0, Math.min(IH, cropY));
+        const safeW = Math.min(IW - safeX, cropW); const safeH = Math.min(IH - safeY, cropH);
         ctx.drawImage(img, safeX, safeY, safeW, safeH, 0, 0, canvas.width, canvas.height);
-
         $('cropModal').style.display = 'none';
         processMathImage(canvas.toDataURL('image/jpeg', 0.9));
     };
 
-    // ==========================================
-    // 🧠 ОБРАБОТКА КАРТИНКИ (OCR -> РЕШЕНИЕ)
-    // ==========================================
     async function processMathImage(base64Image) {
         aB("📷 [Фото отправлено на анализ]", 'u');
-        $('orb').classList.add('thinking'); 
-        $('status').textContent='Сканирую...';
-        
-        var visionPrompt = `Ты — идеальный OCR-сканер математики. Твоя задача — переписать ВСЕ формулы и уравнения с фото в виде обычного текста НА РУССКОМ ЯЗЫКЕ.
-        Правила:
-        1. Дроби пиши строго так: "числитель/знаменатель". Например: 1/10, 1/2, 2/5.
-        2. Если есть знак равно (=), пиши его как =.
-        3. НЕ ОПИСЫВАЙ картинку словами (не пиши "на фото изображено...").
-        4. Просто выдай чистый математический текст того, что видишь. Если есть номера задач, пиши их.
-        Пример вывода: "№506: 1/10 + 1/2 + 2/5 = ... №507: x + 7/12 = 3/4"`;
-        
-        var cm1 = [
-            { role: 'system', content: visionPrompt },
-            { role: 'user', content: [
-                { type: 'text', text: 'Выдай только математический текст с этого фото на русском языке.' }, 
-                { type: 'image_url', image_url: { url: base64Image } }
-            ]}
-        ];
-
+        $('orb').classList.add('thinking'); $('status').textContent='Сканирую...';
+        var visionPrompt = `Ты — идеальный OCR-сканер математики. Твоя задача — переписать ВСЕ формулы и уравнения с фото в виде обычного текста НА РУССКОМ ЯЗЫКЕ. Дроби пиши так: "числитель/знаменатель". Не описывай картинку.`;
+        var cm1 = [{ role: 'system', content: visionPrompt }, { role: 'user', content: [{ type: 'text', text: 'Выдай математический текст.' }, { type: 'image_url', image_url: { url: base64Image } }] }];
         try {
-            var res1 = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-                method:'POST',
-                headers:{'Content-Type':'application/json', 'Authorization':'Bearer '+S.key},
-                body: JSON.stringify({ model: 'qwen/qwen3.8-27b', messages: cm1 })
-            });
+            var res1 = await fetch('https://api.groq.com/openai/v1/chat/completions', { method:'POST', headers:{'Content-Type':'application/json', 'Authorization':'Bearer '+S.key}, body: JSON.stringify({ model: 'qwen/qwen3.8-27b', messages: cm1 }) });
             var d1 = await res1.json();
-            
             if(d1.error) { aM('ОШИБКА Vision: ' + d1.error.message, 'p'); fR(); return; }
-            
             var extractedText = cT(d1.choices[0].message.content);
-            
             aM(`📝 Распознано с фото:\n${extractedText}`, 'p', false);
-            
             S.history.push({ role: 'user', content: 'Вот задание с фото: ' + extractedText });
             saveHistory();
-
             $('status').textContent='Решаю...';
-            
-            var solvePrompt = CHARS[S.char].prompt + `\n\nПользователь прислал фото с математикой. OCR-сканер распознал следующий текст:\n"${extractedText}"\n\nТвоя задача: реши эти примеры и уравнения пошагово. ОТВЕЧАЙ ТОЛЬКО НА РУССКОМ ЯЗЫКЕ. Покажи процесс решения и выдай финальный ответ.`;
-            
-            var cm2 = [
-                { role: 'system', content: solvePrompt }, 
-                { role: 'user', content: 'Реши эти задания.' }
-            ];
-            
-            var res2 = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-                method:'POST',
-                headers:{'Content-Type':'application/json', 'Authorization':'Bearer '+S.key},
-                body: JSON.stringify({ model: 'openai/gpt-oss-120b', messages: cm2 })
-            });
+            var solvePrompt = CHARS[S.char].prompt + `\n\nПользователь прислал фото с математикой. OCR-сканер распознал следующий текст:\n"${extractedText}"\n\nТвоя задача: реши эти примеры и уравнения пошагово. ОТВЕЧАЙ ТОЛЬКО НА РУССКОМ ЯЗЫКЕ.`;
+            var cm2 = [{ role: 'system', content: solvePrompt }, { role: 'user', content: 'Реши эти задания.' }];
+            var res2 = await fetch('https://api.groq.com/openai/v1/chat/completions', { method:'POST', headers:{'Content-Type':'application/json', 'Authorization':'Bearer '+S.key}, body: JSON.stringify({ model: 'openai/gpt-oss-120b', messages: cm2 }) });
             var d2 = await res2.json();
             $('orb').classList.remove('thinking');
-            
             if(d2.error) { aM('ОШИБКА: ' + d2.error.message, 'p'); fR(); return; }
             var solution = cT(d2.choices[0].message.content);
-            
-            // УБРАНА ОЗВУЧКА (spk), ТЕПЕРЬ ТОЛЬКО ТЕКСТ
-            aM(solution, 'p'); 
-            
-            S.history.push({ role: 'assistant', content: solution });
-            saveHistory();
-
-        } catch(e) {
-            $('orb').classList.remove('thinking');
-            aM('ОШИБКА СЕТИ: ' + e.message, 'p'); fR();
-        }
+            aM(solution, 'p'); // БЕЗ ОЗВУЧКИ
+            S.history.push({ role: 'assistant', content: solution }); saveHistory();
+        } catch(e) { $('orb').classList.remove('thinking'); aM('ОШИБКА СЕТИ: ' + e.message, 'p'); fR(); }
     }
 
     // ==========================================
-    // 💬 ОБЫЧНАЯ ОТПРАВКА ТЕКСТА
+    // 💬 ОТПРАВКА
     // ==========================================
     async function snd() {
         fR(); 
         var t = $('inp').value.trim(); 
         if(!t || S.speaking) return; 
-        
-        if(!S.key || S.key === "__GROQ_API_KEY__") {
-            aM("❌ API-ключ не вшит в приложение.", 'p');
+
+        // 🛑 ПРОВЕРКА НА ОСТАНОВКУ ДИАЛОГА
+        if (S.autoDialogueActive && /^(стоп|хватит|закончить диалог|прекрати)$/i.test(t)) {
+            stopAutoDialogue();
+            $('inp').value = ''; toggleBtns();
             return;
         }
 
-        if (detectInjection(t)) { aM("⚠️ Подозрительный запрос заблокирован.", 'p'); $('inp').value = ''; toggleBtns(); return; }
+        // 🛑 ПРОВЕРКА НА ВЫХОД ИЗ ИГРЫ
+        if (S.isGameMode && /^(выйти из игры|закончить игру|хватит играть|стоп игра)$/i.test(t)) {
+            S.isGameMode = false;
+            aM("🎮 Режим игры выключен. Снова обычное общение.", 'p');
+            $('inp').value = ''; toggleBtns();
+            return;
+        }
+
+        if(!S.key || S.key === "__GROQ_API_KEY__") return aM("❌ Ключ не вшит.", 'p');
+        if (detectInjection(t)) return aM("⚠️ Взлом заблокирован.", 'p');
 
         vib(); $('inp').value=''; toggleBtns(); aM(t,'u');
-        
-        var match = t.match(/напомни через (\d+)\s*(минут|мин|час)/i);
-        if(match && nNotif) {
-            let amount = parseInt(match[1]);
-            let unit = match[2].toLowerCase();
-            let ms = unit.startsWith('час') ? amount * 3600000 : amount * 60000;
-            nNotif.schedule({ notifications: [{ title: 'Chimera напоминает', body: t, schedule: { at: new Date(Date.now() + ms) }, id: Math.floor(Math.random()*10000) }] }).catch(()=>{});
-            aM("Хорошо, я напомню тебе об этом.", 'p'); spk("Хорошо, я напомню тебе об этом."); return;
-        }
 
-        $('orb').classList.add('thinking'); $('status').textContent='Думает...';
-        
-        var contextData = "";
-        
-        if (/погод|температур|дожд|снег|ветер|жарко|холодно/i.test(t)) {
-            $('status').textContent = 'Узнаю погоду...';
-            let w = await getWeather();
-            if (w) contextData += `\n\n[АКТУАЛЬНАЯ ПОГОДА: ${w}]`;
-        }
-        
-        if (/найди|поищи|погугли|кто такой|что такое|новости|расскажи про|курс/i.test(t)) {
-            $('status').textContent = 'Ищу в интернете...';
-            let searchResult = await searchWeb(t);
-            if (searchResult) {
-                contextData += `\n\n[РЕЗУЛЬТАТЫ ПОИСКА: ${searchResult}]`;
+        // 🎭 АВТОДИАЛОГ
+        var autoMatch = t.match(/запусти диалог:?\s*([а-яА-Яa-zA-Z\s]+)\s*и\s*([а-яА-Яa-zA-Z\s]+)/i);
+        if (autoMatch) {
+            let p1_name = autoMatch[1].trim().toLowerCase();
+            let p2_name = autoMatch[2].trim().toLowerCase();
+            let p1_key = Object.keys(CHARS).find(k => CHARS[k].name.toLowerCase().includes(p1_name));
+            let p2_key = Object.keys(CHARS).find(k => CHARS[k].name.toLowerCase().includes(p2_name));
+            
+            if (p1_key && p2_key) {
+                aM(`🎭 Начинаю диалог между ${CHARS[p1_key].name} и ${CHARS[p2_key].name}.\n(Скажи "Стоп" или нажми красную кнопку, чтобы прервать)`, 'p', false);
+                S.autoDialogueActive = true;
+                S.autoDialogueAbort = new AbortController();
+                $('stopAutoBtn').style.display = 'block';
+                await runAutoDialogue(p1_key, p2_key, 4, S.autoDialogueAbort.signal);
+                return;
+            } else {
+                aM("Не нашла таких персонажей. Проверь имена.", 'p'); return;
             }
         }
 
+        // 🎲 РЕЖИМ ИГРЫ
+        if (/давай сыграем|города|данетки|квест|игра/i.test(t) && !S.isGameMode) {
+            S.isGameMode = true;
+            aM("🎲 Режим Ведущего активирован. Правила игры будут соблюдаться. Погнали!\n(Скажи "Выйти из игры", чтобы закончить)", 'p');
+        }
+
+        $('orb').classList.add('thinking'); $('status').textContent='Думает...';
+        var contextData = "";
+        if (/погод|температур|дожд|снег|ветер/i.test(t)) { $('status').textContent = 'Узнаю погоду...'; let w = await getWeather(); if (w) contextData += `\n\n[ПОГОДА: ${w}]`; }
+        if (/найди|поищи|погугли|кто такой|что такое|новости/i.test(t)) { $('status').textContent = 'Ищу...'; let s = await searchWeb(t); if (s) contextData += `\n\n[ПОИСК: ${s}]`; }
+
         S.apiAbort = new AbortController(); 
         var to = setTimeout(()=>{ S.apiAbort.abort(); fR(); }, 20000);
-        
+
         var sys = CHARS[S.char].prompt + ` [Инфо: заряд телефона ${S.battery}.]` + contextData;
         
-        if (contextData) {
-            sys += "\n\nВНИМАНИЕ: Я передал тебе данные из интернета. ОБЯЗАТЕЛЬНО используй их в ответе. Запрещено говорить, что у тебя нет доступа к информации!";
+        if (S.isGameMode) {
+            sys += `\n\nРЕЖИМ ИГРЫ: Ты сейчас выступаешь как Game Master. Веди игру "Города" или "Данетки", запоминая ответы пользователя. Будь креативным. Запрещено выходить из роли!`;
         }
 
         var cm = [{role:'system', content:sys}].concat(S.history.slice(-6));
@@ -627,6 +518,109 @@ try {
             if(d.error) { aM('ОШИБКА: '+d.error.message,'p'); fR(); return; }
             var rp = cT(d.choices[0].message.content); aM(rp,'p'); spk(rp);
         }).catch(e=>{ clearTimeout(to); fR(); aM('ОШИБКА СЕТИ: '+e.message,'p'); });
+    }
+
+    // ==========================================
+    // 🎭 ЛОГИКА АВТОДИАЛОГА (С ОСТАНОВКОЙ)
+    // ==========================================
+    async function runAutoDialogue(char1Key, char2Key, turns = 4, signal) {
+        let c1 = CHARS[char1Key]; let c2 = CHARS[char2Key];
+        let history = [];
+
+        for (let i = 0; i < turns; i++) {
+            if (!S.autoDialogueActive || signal.aborted) break;
+            
+            $('status').textContent = `[${c1.name}] говорит...`;
+            
+            // Ход 1
+            let prompt1 = c1.prompt + `\n\nТы общаешься с ${c2.name}. Ответь ему коротко и в своем стиле.`;
+            let cm1 = [{role:'system', content: prompt1}, ...history.slice(-4)];
+            if (history.length === 0) cm1.push({role:'user', content: `Начни диалог с ${c2.name}.`});
+            
+            try {
+                let res1 = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+                    method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+S.key},
+                    signal: signal,
+                    body: JSON.stringify({model:'openai/gpt-oss-120b', messages:cm1})
+                });
+                if (!S.autoDialogueActive || signal.aborted) break;
+                
+                let d1 = await res1.json();
+                if(d1.error) break;
+                let ans1 = cT(d1.choices[0].message.content);
+                aM(`[${c1.name}]: ${ans1}`, 'p', false);
+                history.push({role:'assistant', content:`[${c1.name}]: ${ans1}`});
+                
+                await spkAs(ans1, c1, signal);
+                if (!S.autoDialogueActive || signal.aborted) break;
+
+                // Ход 2
+                $('status').textContent = `[${c2.name}] говорит...`;
+                let prompt2 = c2.prompt + `\n\nТы общаешься с ${c1.name}. Ответь ему.`;
+                let cm2 = [{role:'system', content: prompt2}, ...history.slice(-4)];
+                
+                let res2 = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+                    method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+S.key},
+                    signal: signal,
+                    body: JSON.stringify({model:'openai/gpt-oss-120b', messages:cm2})
+                });
+                if (!S.autoDialogueActive || signal.aborted) break;
+                
+                let d2 = await res2.json();
+                if(d2.error) break;
+                let ans2 = cT(d2.choices[0].message.content);
+                aM(`[${c2.name}]: ${ans2}`, 'p', false);
+                history.push({role:'assistant', content:`[${c2.name}]: ${ans2}`});
+                
+                await spkAs(ans2, c2, signal);
+
+            } catch(e) { break; }
+        }
+        
+        if (S.autoDialogueActive) {
+            $('status').textContent = 'Диалог завершен.';
+            aM("🎭 Диалог персонажей завершен.", 'p', false);
+        }
+        S.autoDialogueActive = false;
+        S.autoDialogueAbort = null;
+        $('stopAutoBtn').style.display = 'none';
+        fR();
+    }
+
+    // Выход из диалога по кнопке
+    window.stopAutoDialogue = function() {
+        if (S.autoDialogueActive) {
+            S.autoDialogueActive = false;
+            if (S.autoDialogueAbort) S.autoDialogueAbort.abort();
+            aM("🛑 Диалог остановлен вручную.", 'p');
+            $('stopAutoBtn').style.display = 'none';
+            fR();
+        }
+    };
+
+    // Озвучка (с проверкой на остановку)
+    async function spkAs(text, charProfile, signal) {
+        if(!text || (signal && signal.aborted)) return;
+        var c = cT(text).replace(/\.\.\./g,'. ');
+        try {
+            if(nTTS) {
+                await nTTS.speak({text:c, lang:'ru-RU', rate:charProfile.rate, pitch:charProfile.pitch});
+                if (signal && signal.aborted) { await nTTS.stop(); return; }
+                let timeToWait = ((c.length * 80) / (charProfile.rate || 1.0)) + 1000;
+                await new Promise(r => setTimeout(r, Math.max(1500, timeToWait)));
+            } else if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel();
+                var u = new SpeechSynthesisUtterance(c);
+                u.lang='ru-RU'; u.rate=charProfile.rate; u.pitch=charProfile.pitch;
+                window.speechSynthesis.speak(u);
+                await new Promise(r => { 
+                    u.onend = r; u.onerror = r;
+                    if (signal) signal.addEventListener('abort', () => { window.speechSynthesis.cancel(); r(); });
+                });
+                if (signal && signal.aborted) return;
+                await new Promise(r => setTimeout(r, 800)); 
+            }
+        } catch(e){}
     }
 
     async function fSM() { if(!nSTT) return; try { await nSTT.stop(); } catch(e){} fR(); }
