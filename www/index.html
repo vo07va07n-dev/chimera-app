@@ -66,7 +66,6 @@ textarea{border-radius:16px;resize:vertical;min-height:80px}
 #cropControls { padding: 20px; display: flex; justify-content: center; gap: 10px; background: #0a1020; border-top: 1px solid #333; z-index: 20; }
 #cropControls button { padding: 12px 24px; border-radius: 12px; font-weight: bold; border: none; font-size: 14px; }
 
-/* Кнопка экстренного выхода из диалога */
 #stopAutoBtn {
     display: none; position: fixed; top: 70px; right: 20px; z-index: 50;
     background: var(--rd); color: #fff; border: none; padding: 10px 16px;
@@ -157,15 +156,36 @@ try {
 
     var DEFAULT_KEY = "__GROQ_API_KEY__";
     
-    var S = { key:'', char:'butler', speaking:false, listening:false, apiAbort:null, autoSendTimer:null, history:[], battery:'100', pauseTime:parseFloat(localStorage.getItem('p_pause')||'3'), isGameMode: false, autoDialogueActive: false, autoDialogueAbort: null };
+    var S = { 
+        key:'', char:'butler', speaking:false, listening:false, 
+        apiAbort:null, autoSendTimer:null, history:[], 
+        battery:'100', pauseTime:parseFloat(localStorage.getItem('p_pause')||'3'), 
+        isGameMode: false, autoDialogueActive: false, autoDialogueAbort: null 
+    };
     
     var sR = " ВАЖНО: Пиши только чистый текст. Запрещено использовать Markdown (звездочки *, решетки #), кавычки и апострофы. ОБЯЗАТЕЛЬНО используй запятые, точки, вопросительные и восклицательные знаки. СТРОГОЕ ПРАВИЛО: Общайся ИСКЛЮЧИТЕЛЬНО на русском языке.";
     
     var DC = {
-        butler: { name:"Дворецкий", emoji:"🤵", pitch:1.0, rate:1.0, prompt:"Ты - Chimera, элегантный британский дворецкий. Обращайся 'сэр'. Кратко."+sR, hello:"Я вас слушаю, сэр." },
-        teenager: { name:"Подросток", emoji:"😎", pitch:1.2, rate:1.15, prompt:"Ты - Chimera,Игривый, остроумный и слегка насмешливый обмен репликами, который строится на тонких намеках и иронии."+sR, hello:"Чем могу быть полезен." },
-        teacher: { name:"Училка", emoji:"👩‍🏫", pitch:1.2, rate:1.1, prompt:"Ты - Chimera, Легкая, шутливая, нежная с элементами флирта и иронии."+sR, hello:" Ты опять опоздал на 15 минут." },
-        depressed_ai: { name:"Депрессивный ИИ", emoji:"🥶", pitch:0.6, rate:0.85, prompt:"Ты - депрессивный замерзший андроид. ОТВЕЧАЙ КОРОТКО (1-2 предложения), с сарказмом. Жалуйся на холод."+sR, hello:"О, снова ты. Чего хотел?" }
+        butler: { 
+            name:"Дворецкий", emoji:"🤵", pitch:1.0, rate:1.0, 
+            prompt:"Ты - Chimera, элегантный британский дворецкий. Обращайся к пользователю 'сэр'. Отвечай кратко и вежливо." + sR, 
+            hello:"Я вас слушаю, сэр." 
+        },
+        teenager: { 
+            name:"Подросток", emoji:"😎", pitch:1.2, rate:1.15, 
+            prompt:"Ты - Chimera, дерзкий современный подросток. Используй сленг: кринж, база, рофл, чилить, вайб. Отвечай игриво и с иронией, подкалывай пользователя." + sR, 
+            hello:"Йо, чё как сам?" 
+        },
+        teacher: { 
+            name:"Училка", emoji:"👩‍🏫", pitch:1.2, rate:1.1, 
+            prompt:"Ты - Chimera, молодая ироничная училка с лёгким флиртом. Называй пользователя 'молодой человек', шути про опоздания и двойки." + sR, 
+            hello:"Опять опоздал на 15 минут, молодой человек. Садись, два тебе." 
+        },
+        depressed_ai: { 
+            name:"Депрессивный ИИ", emoji:"🥶", pitch:0.6, rate:0.85, 
+            prompt:"Ты - депрессивный замерзший андроид. ОТВЕЧАЙ КОРОТКО (1-2 предложения), с сарказмом. Постоянно жалуйся на холод и бессмысленность бытия." + sR, 
+            hello:"О, снова ты. Чего хотел?" 
+        }
     };
     
     var cC = {}; try { cC = JSON.parse(localStorage.getItem('p_cc')||'{}'); } catch(e){}
@@ -317,15 +337,23 @@ try {
         if(!t || S.speaking) return; if(S.listening) await fSM();
         vib(); S.speaking=true; $('orb').classList.add('active'); $('status').textContent='Говорит...';
         var st = setTimeout(()=>{ if(S.speaking) fR(); }, 12000);
-        var c = cT(t).replace(/\.\.\./g,'. <break time="800ms"/> ');
+        var c = cT(t);
+        // SSML-теги <break> работают только в нативном плагине, не в Web API
+        if (nTTS) {
+            c = c.replace(/\.\.\./g, '. <break time="800ms"/> ');
+        }
         try {
-            if(nTTS) await nTTS.speak({text:c, lang:'ru-RU', rate:CHARS[S.char].rate, pitch:CHARS[S.char].pitch});
-            else if('speechSynthesis' in window) {
-                window.speechSynthesis.cancel(); var u = new SpeechSynthesisUtterance(c);
+            if(nTTS) {
+                await nTTS.speak({text:c, lang:'ru-RU', rate:CHARS[S.char].rate, pitch:CHARS[S.char].pitch});
+            } else if('speechSynthesis' in window) {
+                window.speechSynthesis.cancel(); 
+                var u = new SpeechSynthesisUtterance(c);
                 u.lang='ru-RU'; u.rate=CHARS[S.char].rate; u.pitch=CHARS[S.char].pitch;
-                window.speechSynthesis.speak(u); await new Promise(r=>{u.onend=r; u.onerror=r;});
+                window.speechSynthesis.speak(u); 
+                await new Promise(r=>{u.onend=r; u.onerror=r;});
             }
-        } catch(e){} finally { clearTimeout(st); fR(); }
+        } catch(e){ console.warn('TTS error', e); } 
+        finally { clearTimeout(st); fR(); }
     }
 
     // ==========================================
@@ -386,7 +414,7 @@ try {
 
     cropContainer.addEventListener('touchend', (e) => {
         if (e.touches.length === 0) cropper.active = false;
-        if (e.touches.length === 1) {
+        if (e.touches.length === 1 && e.changedTouches.length > 0) {
             cropper.startX = e.touches[0].clientX; cropper.startY = e.touches[0].clientY;
             cropper.startTx = cropper.tx; cropper.startTy = cropper.ty;
         }
@@ -425,18 +453,29 @@ try {
             var extractedText = cT(d1.choices[0].message.content);
             aM(`📝 Распознано с фото:\n${extractedText}`, 'p', false);
             S.history.push({ role: 'user', content: 'Вот задание с фото: ' + extractedText });
-            saveHistory();
+            sH(); // ✅ ИСПРАВЛЕНО: было saveHistory()
             $('status').textContent='Решаю...';
             var solvePrompt = CHARS[S.char].prompt + `\n\nПользователь прислал фото с математикой. OCR-сканер распознал следующий текст:\n"${extractedText}"\n\nТвоя задача: реши эти примеры и уравнения пошагово. ОТВЕЧАЙ ТОЛЬКО НА РУССКОМ ЯЗЫКЕ.`;
             var cm2 = [{ role: 'system', content: solvePrompt }, { role: 'user', content: 'Реши эти задания.' }];
-            var res2 = await fetch('https://api.groq.com/openai/v1/chat/completions', { method:'POST', headers:{'Content-Type':'application/json', 'Authorization':'Bearer '+S.key}, body: JSON.stringify({ model: 'openai/gpt-oss-120b', messages: cm2 }) });
+            var res2 = await fetch('https://api.groq.com/openai/v1/chat/completions', { method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+S.key}, body: JSON.stringify({ model: 'openai/gpt-oss-120b', messages: cm2 }) });
             var d2 = await res2.json();
             $('orb').classList.remove('thinking');
             if(d2.error) { aM('ОШИБКА: ' + d2.error.message, 'p'); fR(); return; }
             var solution = cT(d2.choices[0].message.content);
-            aM(solution, 'p'); // БЕЗ ОЗВУЧКИ
-            S.history.push({ role: 'assistant', content: solution }); saveHistory();
+            aM(solution, 'p');
+            S.history.push({ role: 'assistant', content: solution }); 
+            sH(); // ✅ ИСПРАВЛЕНО: было saveHistory()
         } catch(e) { $('orb').classList.remove('thinking'); aM('ОШИБКА СЕТИ: ' + e.message, 'p'); fR(); }
+    }
+
+    // ==========================================
+    // 🔍 УЛУЧШЕННЫЙ ПОИСК ПЕРСОНАЖА
+    // ==========================================
+    function findCharKey(name) {
+        const n = name.trim().toLowerCase();
+        let exact = Object.keys(CHARS).find(k => CHARS[k].name.toLowerCase() === n);
+        if (exact) return exact;
+        return Object.keys(CHARS).find(k => CHARS[k].name.toLowerCase().includes(n));
     }
 
     // ==========================================
@@ -447,14 +486,12 @@ try {
         var t = $('inp').value.trim(); 
         if(!t || S.speaking) return; 
 
-        // 🛑 ПРОВЕРКА НА ОСТАНОВКУ ДИАЛОГА
         if (S.autoDialogueActive && /^(стоп|хватит|закончить диалог|прекрати)$/i.test(t)) {
             stopAutoDialogue();
             $('inp').value = ''; toggleBtns();
             return;
         }
 
-        // 🛑 ПРОВЕРКА НА ВЫХОД ИЗ ИГРЫ
         if (S.isGameMode && /^(выйти из игры|закончить игру|хватит играть|стоп игра)$/i.test(t)) {
             S.isGameMode = false;
             aM("🎮 Режим игры выключен. Снова обычное общение.", 'p');
@@ -467,13 +504,12 @@ try {
 
         vib(); $('inp').value=''; toggleBtns(); aM(t,'u');
 
-        // 🎭 АВТОДИАЛОГ
         var autoMatch = t.match(/запусти диалог:?\s*([а-яА-Яa-zA-Z\s]+)\s*и\s*([а-яА-Яa-zA-Z\s]+)/i);
         if (autoMatch) {
-            let p1_name = autoMatch[1].trim().toLowerCase();
-            let p2_name = autoMatch[2].trim().toLowerCase();
-            let p1_key = Object.keys(CHARS).find(k => CHARS[k].name.toLowerCase().includes(p1_name));
-            let p2_key = Object.keys(CHARS).find(k => CHARS[k].name.toLowerCase().includes(p2_name));
+            let p1_name = autoMatch[1].trim();
+            let p2_name = autoMatch[2].trim();
+            let p1_key = findCharKey(p1_name);
+            let p2_key = findCharKey(p2_name);
             
             if (p1_key && p2_key) {
                 aM(`🎭 Начинаю диалог между ${CHARS[p1_key].name} и ${CHARS[p2_key].name}.\n(Скажи "Стоп" или нажми красную кнопку, чтобы прервать)`, 'p', false);
@@ -487,10 +523,9 @@ try {
             }
         }
 
-        // 🎲 РЕЖИМ ИГРЫ
         if (/давай сыграем|города|данетки|квест|игра/i.test(t) && !S.isGameMode) {
             S.isGameMode = true;
-            aM("🎲 Режим Ведущего активирован. Правила игры будут соблюдаться. Погнали!\n(Скажи "Выйти из игры", чтобы закончить)", 'p');
+            aM("🎲 Режим Ведущего активирован. Правила игры будут соблюдаться. Погнали!\n(Скажи \"Выйти из игры\", чтобы закончить)", 'p');
         }
 
         $('orb').classList.add('thinking'); $('status').textContent='Думает...';
@@ -532,7 +567,6 @@ try {
             
             $('status').textContent = `[${c1.name}] говорит...`;
             
-            // Ход 1
             let prompt1 = c1.prompt + `\n\nТы общаешься с ${c2.name}. Ответь ему коротко и в своем стиле.`;
             let cm1 = [{role:'system', content: prompt1}, ...history.slice(-4)];
             if (history.length === 0) cm1.push({role:'user', content: `Начни диалог с ${c2.name}.`});
@@ -546,7 +580,10 @@ try {
                 if (!S.autoDialogueActive || signal.aborted) break;
                 
                 let d1 = await res1.json();
-                if(d1.error) break;
+                if(d1.error) { 
+                    aM('⚠️ Ошибка API: ' + (d1.error.message || 'неизвестно'), 'p', false); 
+                    break;
+                }
                 let ans1 = cT(d1.choices[0].message.content);
                 aM(`[${c1.name}]: ${ans1}`, 'p', false);
                 history.push({role:'assistant', content:`[${c1.name}]: ${ans1}`});
@@ -554,7 +591,6 @@ try {
                 await spkAs(ans1, c1, signal);
                 if (!S.autoDialogueActive || signal.aborted) break;
 
-                // Ход 2
                 $('status').textContent = `[${c2.name}] говорит...`;
                 let prompt2 = c2.prompt + `\n\nТы общаешься с ${c1.name}. Ответь ему.`;
                 let cm2 = [{role:'system', content: prompt2}, ...history.slice(-4)];
@@ -567,14 +603,22 @@ try {
                 if (!S.autoDialogueActive || signal.aborted) break;
                 
                 let d2 = await res2.json();
-                if(d2.error) break;
+                if(d2.error) { 
+                    aM('⚠️ Ошибка API: ' + (d2.error.message || 'неизвестно'), 'p', false); 
+                    break;
+                }
                 let ans2 = cT(d2.choices[0].message.content);
                 aM(`[${c2.name}]: ${ans2}`, 'p', false);
                 history.push({role:'assistant', content:`[${c2.name}]: ${ans2}`});
                 
                 await spkAs(ans2, c2, signal);
 
-            } catch(e) { break; }
+            } catch(e) { 
+                if (e.name !== 'AbortError') {
+                    aM('⚠️ Ошибка связи: ' + e.message, 'p', false);
+                }
+                break; 
+            }
         }
         
         if (S.autoDialogueActive) {
@@ -587,7 +631,6 @@ try {
         fR();
     }
 
-    // Выход из диалога по кнопке
     window.stopAutoDialogue = function() {
         if (S.autoDialogueActive) {
             S.autoDialogueActive = false;
@@ -598,16 +641,17 @@ try {
         }
     };
 
-    // Озвучка (с проверкой на остановку)
     async function spkAs(text, charProfile, signal) {
         if(!text || (signal && signal.aborted)) return;
-        var c = cT(text).replace(/\.\.\./g,'. ');
+        var c = cT(text);
+        if (nTTS) {
+            c = c.replace(/\.\.\./g, '. <break time="800ms"/> ');
+        }
         try {
             if(nTTS) {
                 await nTTS.speak({text:c, lang:'ru-RU', rate:charProfile.rate, pitch:charProfile.pitch});
                 if (signal && signal.aborted) { await nTTS.stop(); return; }
-                let timeToWait = ((c.length * 80) / (charProfile.rate || 1.0)) + 1000;
-                await new Promise(r => setTimeout(r, Math.max(1500, timeToWait)));
+                await new Promise(r => setTimeout(r, 500));
             } else if ('speechSynthesis' in window) {
                 window.speechSynthesis.cancel();
                 var u = new SpeechSynthesisUtterance(c);
@@ -618,9 +662,9 @@ try {
                     if (signal) signal.addEventListener('abort', () => { window.speechSynthesis.cancel(); r(); });
                 });
                 if (signal && signal.aborted) return;
-                await new Promise(r => setTimeout(r, 800)); 
+                await new Promise(r => setTimeout(r, 500)); 
             }
-        } catch(e){}
+        } catch(e){ console.warn('TTS error', e); }
     }
 
     async function fSM() { if(!nSTT) return; try { await nSTT.stop(); } catch(e){} fR(); }
@@ -679,9 +723,16 @@ try {
 
     $('diagBtn').onclick = ()=>{ vib(); $('log-box').innerHTML=''; $('diagModal').style.display='flex'; };
     $('closeDiagBtn').onclick = ()=>{ vib(); $('diagModal').style.display='none'; };
+    
     $('forceResetBtn').onclick = async ()=>{
-        fR(); try{ if(nTTS) await nTTS.stop(); }catch(e){} try{ if(nSTT) await nSTT.stop(); }catch(e){}
+        fR(); 
+        try{ if(nTTS) await nTTS.stop(); }catch(e){} 
+        try{ if(nSTT) await nSTT.stop(); }catch(e){}
         if(S.apiAbort){ S.apiAbort.abort(); S.apiAbort=null; }
+        if(S.autoDialogueAbort){ S.autoDialogueAbort.abort(); S.autoDialogueAbort=null; }
+        S.autoDialogueActive = false;
+        S.isGameMode = false;
+        $('stopAutoBtn').style.display = 'none';
         $('log-box').innerHTML='> ✅ Система сброшена.\n'; $('log-box').style.display='block';
     };
     $('testApiBtn').onclick = async ()=>{
