@@ -132,8 +132,8 @@ textarea{border-radius:16px;resize:vertical;min-height:80px}
 
 <div style="margin-top:20px;padding:12px;border-radius:10px;background:rgba(255,209,102,0.06);border:1px solid rgba(255,209,102,0.2);font-size:12px;color:#ffeab3;line-height:1.6;">
   <b>⚔️ Режимы диалогов:</b><br>
-  • «Запусти диалог: [1] и [2]» — обычный (40 раунда)<br>
-  • «Запусти баттл: [1] и [2]» — жёсткий (60 раундов)<br>
+  • «Запусти диалог: [1] и [2]» — обычный (4 раунда)<br>
+  • «Запусти баттл: [1] и [2]» — жёсткий (6 раундов)<br>
   Первый персонаж = <span style="color:#ff9">Groq</span>, второй = <span style="color:#ff9">Gemini</span>
 </div>
 
@@ -198,7 +198,7 @@ try {
         teacher: { 
             name:"Училка", emoji:"👩‍🏫", pitch:1.2, rate:1.1, 
             prompt:"Ты - Chimera, молодая ироничная училка с лёгким флиртом. Называй пользователя 'молодой человек', шути про опоздания и двойки." + sR, 
-            hello:"Опять опоздал на 15 минут, молодой человек." 
+            hello:"Опять опоздал на 15 минут, молодой человек. Садись, два тебе." 
         },
         depressed_ai: { 
             name:"Депрессивный ИИ", emoji:"🥶", pitch:0.6, rate:0.85, 
@@ -332,36 +332,7 @@ try {
             body: JSON.stringify({
                 system_instruction: sys ? { parts: [{ text: sys }] } : undefined,
                 contents: contents,
-                generationConfig: { temperature: options.temperature ?? 0.8, maxOutputTokens: options.max_tokens || 600
-                                   };
-        const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-            method: 'POST', signal: options.signal,
-            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + S.key },
-            body: JSON.stringify(body)
-        });
-        const txt = await res.text();
-        if (!res.ok) throw new Error(`Groq ${res.status}: ${txt.slice(0,150)}`);
-        const d = JSON.parse(txt);
-        return d.choices?.[0]?.message?.content || '';
-    }
-
-    async function callGemini(messages, options = {}) {
-        if (!S.geminiKey || S.geminiKey === "__GEMINI_API_KEY__") {
-            throw new Error('Gemini ключ не настроен');
-        }
-        const sys = messages.find(m => m.role === 'system')?.content || '';
-        const contents = messages.filter(m => m.role !== 'system').map(m => ({
-            role: m.role === 'assistant' ? 'model' : 'user',
-            parts: [{ text: m.content }]
-        }));
-        const model = options.model || 'gemini-2.0-flash';
-        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${S.geminiKey}`, {
-            method: 'POST', signal: options.signal,
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                system_instruction: sys ? { parts: [{ text: sys }] } : undefined,
-                contents: contents,
-                generationConfig: { temperature: options.temperature ?? 0.8, maxOutputTokens: options.max_tokens || 600 }
+                  generationConfig: { temperature: options.temperature ?? 0.8, maxOutputTokens: options.max_tokens || 600 }
             })
         });
         const txt = await res.text();
@@ -684,9 +655,9 @@ try {
                 const c1 = CHARS[p1_key]; const c2 = CHARS[p2_key];
                 
                 if (isBattle) {
-                    aM(`⚔️ БАТТЛ: ${c1.name} (Groq) VS ${c2.name} (Gemini)\n60 раундов жёсткой перепалки. Скажи "Стоп" чтобы прервать.`, 'p', false);
+                    aM(`⚔️ БАТТЛ: ${c1.name} (Groq) VS ${c2.name} (Gemini)\n6 раундов жёсткой перепалки. Скажи "Стоп" чтобы прервать.`, 'p', false);
                 } else {
-                    aM(`🎭 Диалог: ${c1.name} (Groq) + ${c2.name} (Gemini)\n40 раунда. Скажи "Стоп" чтобы прервать.`, 'p', false);
+                    aM(`🎭 Диалог: ${c1.name} (Groq) + ${c2.name} (Gemini)\n4 раунда. Скажи "Стоп" чтобы прервать.`, 'p', false);
                 }
                 
                 S.autoDialogueActive = true;
@@ -732,7 +703,7 @@ try {
             }
         } catch(e) {
             clearTimeout(to); $('orb').classList.remove('thinking');
-  aM('ОШИБКА: ' + e.message, 'p');
+            aM('ОШИБКА: ' + e.message, 'p');
             setStatus('Ошибка');
         }
     }
@@ -913,8 +884,8 @@ try {
         $('stopAutoBtn').style.display = 'none';
         $('log-box').innerHTML='> ✅ Система сброшена.\n'; $('log-box').style.display='block';
     };
-    
-    $('testApiBtn').onclick = async ()=>{
+
+     $('testApiBtn').onclick = async ()=>{
         var b=$('log-box'); b.style.display='block'; b.innerHTML = '';
         b.innerHTML += '> Проверка Groq...\n';
         try{ 
