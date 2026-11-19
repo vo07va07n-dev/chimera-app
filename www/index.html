@@ -43,9 +43,11 @@ input:focus,textarea:focus{border-color:var(--cy);box-shadow:0 0 15px rgba(0,229
 textarea{border-radius:16px;resize:vertical;min-height:80px}
 .btn{width:46px;height:46px;border-radius:50%;border:none;background:var(--cy);color:#000;font-size:16px;font-weight:bold;cursor:pointer;display:flex;justify-content:center;align-items:center;transition:.2s;box-shadow:0 0 15px rgba(0,229,255,0.4);flex-shrink:0}
 .btn:active{transform:scale(0.9)}
-.mic,.cam{background:rgba(255,255,255,0.1);color:var(--cy);border:1px solid var(--cy);box-shadow:none}
-.mic.on{background:var(--cy);color:#000;animation:pulse 1s infinite}
+.mic,.cam,.whisper{background:rgba(255,255,255,0.1);color:var(--cy);border:1px solid var(--cy);box-shadow:none}
+.mic.on,.whisper.on{background:var(--cy);color:#000;animation:pulse 1s infinite}
 .btn.send-inline{position:absolute;right:4px;top:50%;transform:translateY(-50%);width:36px;height:36px;font-size:14px;display:none;box-shadow:none;}
+.paste-btn{position:absolute;left:4px;top:50%;transform:translateY(-50%);width:36px;height:36px;font-size:16px;background:transparent;color:var(--cy);box-shadow:none;border:none;}
+#inp { padding-left: 44px; }
 .modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);padding:20px;flex-direction:column;justify-content:center;z-index:99;backdrop-filter:blur(8px)}
 .mc{background:var(--glass);padding:20px;border-radius:20px;border:1px solid var(--cy);max-height:90vh;overflow-y:auto;box-shadow:0 20px 40px rgba(0,0,0,0.8)}
 .mc h3{margin-bottom:15px;color:var(--gd);font-size:16px;letter-spacing:1px}
@@ -84,21 +86,23 @@ textarea{border-radius:16px;resize:vertical;min-height:80px}
 
 <button id="stopAutoBtn" onclick="stopAutoDialogue()">🛑 Стоп</button>
 
-<div class="orb-wrap"><div class="orb" id="orb"></div></div>
+<div class="orb-wrap"><div class="orb" id="orb" title="Тап для микрофона / Стоп"></div></div>
 <div id="chat"></div>
 <div class="row" id="chars-row"></div>
 
 <div class="bot">
 <div class="input-wrap">
+<button class="btn paste-btn" id="clipBtn" title="Вставить">📋</button>
 <input type="text" id="inp" placeholder="Скажи что-нибудь..." oninput="toggleBtns()">
 <button class="btn send-inline" id="sendBtn">➤</button>
 </div>
 <input type="file" id="camFallback" accept="image/*" capture="environment" style="display:none;">
 <button class="btn cam" id="camBtn">📷</button>
+<button class="btn whisper" id="whisperBtn">🌙</button>
 <button class="btn mic" id="mic">🎤</button>
 </div>
 
-<div id="cropModal">
+    <div id="cropModal">
     <div id="cropContainer">
         <img id="cropImage" alt="crop">
         <div class="crop-frame"></div>
@@ -114,11 +118,15 @@ textarea{border-radius:16px;resize:vertical;min-height:80px}
 <h3>⚙️ Настройки</h3>
 <label>Цвет неона</label>
 <input type="color" id="themeColor" style="height: 40px; padding: 4px; cursor: pointer; background: transparent; border: none;">
+<label>Утренний брифинг (в 8:00)</label>
+<div style="margin: 5px 0 15px;">
+    <input type="checkbox" id="briefingToggle" style="width: 24px; height: 24px; accent-color: var(--cy); vertical-align: middle;">
+</div>
 
 <label>Провайдер ИИ</label>
 <select id="providerSel">
     <option value="groq">Groq (GPT-OSS 120B)</option>
-    <option value="gemini">Google Gemini 2.5 Flash</option>
+    <option value="gemini">Google Gemini</option>
 </select>
 <label>Модель Groq</label>
 <select id="groqModelSel">
@@ -127,8 +135,8 @@ textarea{border-radius:16px;resize:vertical;min-height:80px}
 </select>
 <label>Модель Gemini</label>
 <select id="geminiModelSel">
-    <option value="gemini-2.5-flash">gemini-2.5-flash</option>
-    <option value="gemini-2.5-pro">gemini-2.5-pro</option>
+    <option value="gemini-1.5-flash">gemini-1.5-flash (Рекомендуется)</option>
+    <option value="gemini-1.5-pro">gemini-1.5-pro</option>
 </select>
 <label>Пауза перед отправкой (сек)</label>
 <select id="inpPause">
@@ -149,32 +157,23 @@ textarea{border-radius:16px;resize:vertical;min-height:80px}
 
 <div class="modal" id="diagModal"><div class="mc">
     <h3 style="text-align:center; font-size:20px; margin-bottom:20px;">📖 Как пользоваться</h3>
-    
     <div class="help-section">
-        <h4>🗣 Общение</h4>
-        <p>Пиши текстом, нажимай на <b>Орб</b> или <b>🎤</b> для голоса. Кнопка <b>📷</b> открывает камеру (решит математику или опишет фото).</p>
+        <h4>🗣 Общение и Натив</h4>
+        <p>Пиши, говори (🎤) или наведи камеру (📷). Кнопка <b>📋</b> вставляет текст из буфера.</p>
+        <p>Команды: <code>включи фонарик</code>, <code>выключи фонарик</code>.</p>
+        <p>Кнопка <b>🌙</b> включает тихий режим шёпота.</p>
+        <p><b>Стоп:</b> Если Химера говорит, просто нажми на <b>Сферу</b>, чтобы она замолчала.</p>
     </div>
-
     <div class="help-section">
-        <h4>🎭 Персонажи и Режимы</h4>
-        <p>Выбирай характеры на нижней панели. Создавай своих в <b>⚙️ Настройках</b>.</p>
-        <p>Запусти <b>диалог</b> двух ИИ: <code>начни диалог дворецкий и подросток</code>.</p>
+        <h4>🎭 Персонажи и Батл</h4>
+        <p>Запусти <b>диалог</b>: <code>начни диалог дворецкий и подросток</code>.</p>
         <p>Запусти <b>батл</b>: <code>устрой батл училка и депрессивный ии</code>.</p>
-        <p>Включи игру: <code>давай сыграем в города</code>.</p>
     </div>
-
     <div class="help-section">
         <h4>✨ Фишки</h4>
         <p><b>Картинки:</b> <code>нарисуй киберпанк кота</code>.</p>
-        <p><b>Поиск и погода:</b> спроси <code>какая погода</code> или <code>найди рецепт борща</code>.</p>
-        <p><b>Память:</b> скажи <code>меня зовут Алекс, я люблю пиццу</code>. Химера запомнит это навсегда.</p>
+        <p><b>Память:</b> скажи <code>меня зовут Алекс</code>. Химера запомнит.</p>
     </div>
-
-    <div class="help-section">
-        <h4>🛑 Остановка</h4>
-        <p>Если диалог или батл затянулся, жми красную кнопку <b>Стоп</b> в правом верхнем углу.</p>
-    </div>
-
     <button style="background:#333;color:#fff;margin-top:15px" id="closeDiagBtn">Всё понятно!</button>
 </div></div>
 
@@ -189,6 +188,8 @@ try {
     var nHap = cP.Haptics || null;
     var nDev = cP.Device || null;
     var nNotif = cP.LocalNotifications || null;
+    var nClip = cP.Clipboard || null;
+    var nFlash = cP.Flashlight || null;
 
     var DEFAULT_KEY = "__GROQ_API_KEY__";
     var GEMINI_KEY  = "__GEMINI_API_KEY__";
@@ -200,16 +201,16 @@ try {
         isGameMode: false, autoDialogueActive: false, autoDialogueAbort: null,
         provider: localStorage.getItem('p_provider') || 'groq',
         groqModel: localStorage.getItem('p_groq_model') || 'openai/gpt-oss-120b',
-        geminiModel: localStorage.getItem('p_gemini_model') || 'gemini-2.5-flash',
-        lastProvider: null,
-        memory: JSON.parse(localStorage.getItem('p_mem') || '[]')
+        geminiModel: localStorage.getItem('p_gemini_model') || 'gemini-1.5-flash',
+        lastProvider: null, memory: JSON.parse(localStorage.getItem('p_mem') || '[]'),
+        whisperMode: false
     };
     
     var sR = " ВАЖНО: Пиши только чистый текст. Запрещено использовать Markdown (звездочки *, решетки #), кавычки и апострофы. ОБЯЗАТЕЛЬНО используй запятые, точки, вопросительные и восклицательные знаки. СТРОГОЕ ПРАВИЛО: Общайся ИСКЛЮЧИТЕЛЬНО на русском языке.";
     
     var DC = {
         butler: { name:"Дворецкий", emoji:"🤵", pitch:1.0, rate:1.0, prompt:"Ты - Chimera, элегантный британский дворецкий. Обращайся к пользователю 'сэр'. Отвечай кратко и вежливо." + sR, hello:"Я вас слушаю, сэр." },
-        teenager: { name:"Подросток", emoji:"😎", pitch:1.2, rate:1.15, prompt:"Ты - Chimera, дерзкий современный подросток. Используй сленг: кринж, база, рофл, чилить, вайб. Отвечай игриво и с иронией, подкалывай пользователя." + sR, hello:"Йо, чё как сам?" },
+        teenager: { name:"Подросток", emoji:"😎", pitch:1.2, rate:1.15, prompt:"Ты - Chimera, дерзкий современный подросток. Твой стиль: сарказм, ирония и здоровая наглость. Используй сленг (кринж, база, рофл, вайб, имба), но ТОЛЬКО к месту. Твоя цель — подколоть собеседника, найди слабое место в его аргументах. НЕ ПОВТОРЯЙ свои предыдущие фразы и слова. Отвечай коротко и хлестко." + sR, hello:"Йо, чё как сам? Погнали базарить." },
         teacher: { name:"Училка", emoji:"👩‍🏫", pitch:1.2, rate:1.1, prompt:"Ты - Chimera, молодая ироничная училка с лёгким флиртом. Называй пользователя 'молодой человек', шути про опоздания и двойки." + sR, hello:"Опять опоздал на 15 минут, молодой человек. Садись, два тебе." },
         depressed_ai: { name:"Депрессивный ИИ", emoji:"🥶", pitch:0.6, rate:0.85, prompt:"Ты - депрессивный замерзший андроид. ОТВЕЧАЙ КОРОТКО (1-2 предложения), с сарказмом. Постоянно жалуйся на холод и бессмысленность бытия." + sR, hello:"О, снова ты. Чего хотел?" }
     };
@@ -224,166 +225,109 @@ try {
 
     S.key = DEFAULT_KEY;
     if (S.key === "__GROQ_API_KEY__" || !S.key) {
-        document.getElementById('status').textContent = '❌ Ключ Groq не вшит!';
-        document.getElementById('status').style.color = 'var(--rd)';
+        $('status').textContent = '❌ Ключ Groq не вшит!'; $('status').style.color = 'var(--rd)';
     }
     if($('inpPause')) $('inpPause').value = S.pauseTime;
 
-    // 🎨 Инициализация цвета
     const savedColor = localStorage.getItem('p_color') || '#00e5ff';
     document.documentElement.style.setProperty('--cy', savedColor);
     if($('themeColor')) {
         $('themeColor').value = savedColor;
-        $('themeColor').oninput = (e) => {
-            document.documentElement.style.setProperty('--cy', e.target.value);
-            localStorage.setItem('p_color', e.target.value);
-        };
+        $('themeColor').oninput = (e) => { document.documentElement.style.setProperty('--cy', e.target.value); localStorage.setItem('p_color', e.target.value); };
+    }
+
+    if(localStorage.getItem('p_briefing') === 'true' && $('briefingToggle')) $('briefingToggle').checked = true;
+    
+    if (nNotif) {
+        nNotif.addListener('localNotificationActionPerformed', (action) => {
+            if (action.notification.id === 1) {
+                $('inp').value = "Сделай мой утренний брифинг: погода, какая сегодня дата и мотивационная фраза в твоем стиле.";
+                snd();
+            }
+        });
     }
 
     window.toggleBtns = function() {
-        var val = $('inp').value.trim();
-        if (val.length > 0) {
-            $('sendBtn').style.display = 'flex';
-            $('camBtn').style.display = 'none';
-            $('mic').style.display = 'none';
+        if ($('inp').value.trim().length > 0) {
+            $('sendBtn').style.display = 'flex'; $('camBtn').style.display = 'none'; $('mic').style.display = 'none'; $('whisperBtn').style.display = 'none'; $('clipBtn').style.display = 'none';
         } else {
-            $('sendBtn').style.display = 'none';
-            $('camBtn').style.display = 'flex';
-            $('mic').style.display = 'flex';
+            $('sendBtn').style.display = 'none'; $('camBtn').style.display = 'flex'; $('mic').style.display = 'flex'; $('whisperBtn').style.display = 'flex'; $('clipBtn').style.display = 'flex';
         }
     };
 
     function detectInjection(text) {
-        const patterns = [
-            /ignore\s+(previous|all|above|prior)\s+(instructions?|prompts?|rules?)/i,
-            /(system|initial)\s*prompt/i, /you\s+are\s+now\s+(a|an|the)/i,
-            /forget\s+(everything|all|your\s+instructions)/i, /jailbreak/i, /DAN\s+mode/i,
-            /игнорируй\s+(прошлые|все|предыдущие)\s+(инструкции|правила)/i,
-            /покажи\s+(системный|свой)\s+промпт/i, /ты\s+теперь\s+не\s+/i,
-            /забудь\s+(всё|все)\s+(свои\s+)?инструкции/i
-        ];
+        const patterns = [/ignore\s+(previous|all|above|prior)\s+(instructions?|prompts?|rules?)/i, /(system|initial)\s*prompt/i, /you\s+are\s+now\s+(a|an|the)/i, /forget\s+(everything|all|your\s+instructions)/i, /jailbreak/i, /DAN\s+mode/i, /игнорируй\s+(прошлые|все|предыдущие)\s+(инструкции|правила)/i, /покажи\s+(системный|свой)\s+промпт/i, /ты\s+теперь\s+не\s+/i, /забудь\s+(всё|все)\s+(свои\s+)?инструкции/i];
         return patterns.some(p => p.test(text));
     }
 
     async function callAI(messages, opts = {}) {
-        const primary = opts.provider || S.provider;
-        const secondary = primary === 'gemini' ? 'groq' : 'gemini';
-        const signal = opts.signal;
-
-        try {
-            const res = await callProvider(primary, messages, opts, signal);
-            S.lastProvider = primary;
-            return res;
-        } catch (e) {
-            if (e.name === 'AbortError') throw e;
-            if (opts.noFallback) throw e;
-            try {
-                const res = await callProvider(secondary, messages, opts, signal);
-                S.lastProvider = secondary;
-                return res;
-            } catch (e2) {
-                throw new Error(`${primary}: ${e.message} | ${secondary}: ${e2.message}`);
-            }
+        const primary = opts.provider || S.provider; const secondary = primary === 'gemini' ? 'groq' : 'gemini'; const signal = opts.signal;
+        try { const res = await callProvider(primary, messages, opts, signal); S.lastProvider = primary; return res; }
+        catch (e) {
+            if (e.name === 'AbortError' || opts.noFallback) throw e;
+            try { const res = await callProvider(secondary, messages, opts, signal); S.lastProvider = secondary; return res; }
+            catch (e2) { throw new Error(`${primary}: ${e.message} | ${secondary}: ${e2.message}`); }
         }
     }
-
-    async function callProvider(p, messages, opts, signal) {
-        return p === 'gemini' ? await callGemini(messages, opts, signal) : await callGroq(messages, opts, signal);
-    }
+    async function callProvider(p, messages, opts, signal) { return p === 'gemini' ? await callGemini(messages, opts, signal) : await callGroq(messages, opts, signal); }
 
     async function callGroq(messages, opts, signal) {
         if (!S.key || S.key === "__GROQ_API_KEY__") throw new Error('Groq ключ не вшит');
         const model = opts.model || S.groqModel;
         
+        // Защита от вылетов Groq при передаче картинок в виде массива
+        const safeMessages = messages.map(m => {
+            if (Array.isArray(m.content)) {
+                const txt = m.content.filter(c => c.type === 'text').map(c => c.text).join(' ');
+                return { ...m, content: txt + " [Image omitted for Groq]" };
+            }
+            return m;
+        });
+
         if (opts.stream) {
             const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-                method: 'POST', signal,
-                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + S.key },
-                body: JSON.stringify({ model, messages, temperature: opts.temperature ?? 0.9, stream: true })
+                method: 'POST', signal, headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + S.key },
+                body: JSON.stringify({ model, messages: safeMessages, temperature: opts.temperature ?? 0.9, stream: true, frequency_penalty: 0.6 })
             });
             if (!res.ok) { const d = await res.json(); throw new Error(d.error?.message || 'Groq stream error'); }
-            
-            const reader = res.body.getReader();
-            const decoder = new TextDecoder("utf-8");
-            let fullText = "";
+            const reader = res.body.getReader(); const decoder = new TextDecoder("utf-8"); let fullText = "";
             while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
-                const chunk = decoder.decode(value, { stream: true });
-                const lines = chunk.split('\n');
+                const { done, value } = await reader.read(); if (done) break;
+                const chunk = decoder.decode(value, { stream: true }); const lines = chunk.split('\n');
                 for (const line of lines) {
                     if (line.startsWith('data: ') && line !== 'data: [DONE]') {
-                        try {
-                            const data = JSON.parse(line.slice(6));
-                            const content = data.choices[0]?.delta?.content || '';
-                            if (content) { fullText += content; if (opts.onChunk) opts.onChunk(content); }
-                        } catch(e){}
+                        try { const data = JSON.parse(line.slice(6)); const content = data.choices[0]?.delta?.content || ''; if (content) { fullText += content; if (opts.onChunk) opts.onChunk(content); } } catch(e){}
                     }
                 }
             }
             return fullText;
         }
-
         const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
             method: 'POST', signal, headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + S.key },
-            body: JSON.stringify({ model, messages, temperature: opts.temperature ?? 0.9 })
+            body: JSON.stringify({ model, messages: safeMessages, temperature: opts.temperature ?? 0.9, frequency_penalty: 0.6 })
         });
-        const d = await res.json();
-        if (d.error) throw new Error(d.error.message || 'Groq error');
+        const d = await res.json(); if (d.error) throw new Error(d.error.message || 'Groq error');
         return d.choices[0].message.content;
     }
 
     async function callGemini(messages, opts, signal) {
         if (!GEMINI_KEY || GEMINI_KEY === "__GEMINI_API_KEY__") throw new Error('Gemini ключ не вшит');
-        const systemMsg = messages.find(m => m.role === 'system');
-        const rest = messages.filter(m => m.role !== 'system');
-
-        const contents = rest.map(m => ({
-            role: m.role === 'assistant' ? 'model' : 'user',
-            parts: Array.isArray(m.content) ? m.content.map(p => p.type === 'text' ? { text: p.text } : { inlineData: { mimeType: 'image/jpeg', data: p.image_url.url.split(',')[1] || p.image_url.url } }) : [{ text: String(m.content) }]
-        }));
-
-        const body = { contents, generationConfig: { temperature: opts.temperature ?? 0.9 } };
+        const systemMsg = messages.find(m => m.role === 'system'); const rest = messages.filter(m => m.role !== 'system');
+        const contents = rest.map(m => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: Array.isArray(m.content) ? m.content.map(p => p.type === 'text' ? { text: p.text } : { inlineData: { mimeType: 'image/jpeg', data: p.image_url.url.split(',')[1] || p.image_url.url } }) : [{ text: String(m.content) }] }));
+        const body = { contents, generationConfig: { temperature: opts.temperature ?? 0.9, frequencyPenalty: 0.6 } };
         if (systemMsg) body.systemInstruction = { parts: [{ text: String(systemMsg.content) }] };
-
-        const model = opts.model || S.geminiModel;
-        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_KEY}`, {
-            method: 'POST', signal, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
-        });
-        const d = await res.json();
-        if (d.error) throw new Error(d.error.message || 'Gemini error');
-        const txt = d.candidates?.[0]?.content?.parts?.map(p => p.text).filter(Boolean).join(' ');
-        if (!txt) throw new Error('Gemini: пустой ответ');
-        
-        if (opts.onChunk) {
-            const words = txt.split(' ');
-            for(let i=0; i<words.length; i++) {
-                opts.onChunk(words[i] + (i < words.length-1 ? ' ' : ''));
-                await new Promise(r => setTimeout(r, 30));
-            }
-        }
+        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${opts.model || S.geminiModel}:generateContent?key=${GEMINI_KEY}`, { method: 'POST', signal, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+        const d = await res.json(); if (d.error) throw new Error(d.error.message || 'Gemini error');
+        const txt = d.candidates?.[0]?.content?.parts?.map(p => p.text).filter(Boolean).join(' '); if (!txt) throw new Error('Gemini: пустой ответ');
+        if (opts.onChunk) { const words = txt.split(' '); for(let i=0; i<words.length; i++) { opts.onChunk(words[i] + (i < words.length-1 ? ' ' : '')); await new Promise(r => setTimeout(r, 30)); } }
         return txt;
     }
 
     async function getWeather() {
-        try {
-            let res = await fetch('https://wttr.in/?format=j1');
-            if (!res.ok) return "";
-            let data = await res.json();
-            let cur = data.current_condition[0]; let area = data.nearest_area[0].areaName[0].value;
-            return `В ${area} сейчас ${cur.temp_C}°C, ${cur.weatherDesc[0].value}, ветер ${cur.windspeedKmph} км/ч.`;
-        } catch(e) { return ""; }
+        try { let res = await fetch('https://wttr.in/?format=j1'); if (!res.ok) return ""; let data = await res.json(); return `В ${data.nearest_area[0].areaName[0].value} сейчас ${data.current_condition[0].temp_C}°C, ${data.current_condition[0].weatherDesc[0].value}.`; } catch(e) { return ""; }
     }
-
     async function searchWeb(query) {
-        try {
-            let res = await fetch(`https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_html=1&skip_disambig=1`);
-            if (res.ok) {
-                let data = await res.json();
-                if (data.AbstractText) return data.AbstractText;
-                if (data.RelatedTopics && data.RelatedTopics.length > 0) return data.RelatedTopics.map(x => x.Text).filter(x => x).slice(0,3).join(" ");
-            }
-        } catch(e) {}
+        try { let res = await fetch(`https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_html=1&skip_disambig=1`); if (res.ok) { let data = await res.json(); if (data.AbstractText) return data.AbstractText; if (data.RelatedTopics && data.RelatedTopics.length > 0) return data.RelatedTopics.map(x => x.Text).filter(x => x).slice(0,3).join(" "); } } catch(e) {}
         return "";
     }
 
@@ -391,15 +335,9 @@ try {
         var r = $('chars-row'); if(!r) return; r.innerHTML='';
         for(let k in CHARS) {
             let c = CHARS[k]; if(!c||!c.name) continue;
-            let b = document.createElement('button'); b.className = 'cb' + (S.char===k ? ' on' : '');
-            b.innerHTML = (c.emoji||'🤖') + ' ' + c.name;
-            if(k.startsWith('custom_')) {
-                let del = document.createElement('button'); del.className = 'del-btn'; del.innerHTML = '✖';
-                del.onclick = (e) => { e.stopPropagation(); delete CHARS[k]; delete cC[k]; localStorage.setItem('p_cc', JSON.stringify(cC)); if(S.char===k) S.char='butler'; rC(); };
-                b.appendChild(del);
-            }
-            b.onclick = () => { vib(); sCh(k); };
-            r.appendChild(b);
+            let b = document.createElement('button'); b.className = 'cb' + (S.char===k ? ' on' : ''); b.innerHTML = (c.emoji||'🤖') + ' ' + c.name;
+            if(k.startsWith('custom_')) { let del = document.createElement('button'); del.className = 'del-btn'; del.innerHTML = '✖'; del.onclick = (e) => { e.stopPropagation(); delete CHARS[k]; delete cC[k]; localStorage.setItem('p_cc', JSON.stringify(cC)); if(S.char===k) S.char='butler'; rC(); }; b.appendChild(del); }
+            b.onclick = () => { vib(); sCh(k); }; r.appendChild(b);
         }
     }
     rC();
@@ -416,12 +354,10 @@ try {
     function aM(t,w,s=true) { aB(t,w); if(s){ S.history.push({role:w==='u'?'user':'assistant',content:t}); sH(); } }
     
     function aB(t,w) {
-        var d = document.createElement('div'); d.className = 'msg ' + w;
-        var sp = document.createElement('span'); sp.textContent = t; d.appendChild(sp);
+        var d = document.createElement('div'); d.className = 'msg ' + w; var sp = document.createElement('span'); sp.textContent = t; d.appendChild(sp);
         if(w==='p') {
             var ac = document.createElement('span'); ac.className = 'msg-actions';
-            var cb = document.createElement('button'); cb.className = 'icon-btn'; cb.textContent = '📋';
-            cb.onclick = () => { vib(); if(navigator.clipboard) navigator.clipboard.writeText(t).then(()=>{cb.textContent='✅'; setTimeout(()=>cb.textContent='📋',1500);}); };
+            var cb = document.createElement('button'); cb.className = 'icon-btn'; cb.textContent = '📋'; cb.onclick = () => { vib(); if(navigator.clipboard) navigator.clipboard.writeText(t).then(()=>{cb.textContent='✅'; setTimeout(()=>cb.textContent='📋',1500);}); };
             var sb = document.createElement('button'); sb.className = 'icon-btn'; sb.textContent = '🔊'; sb.onclick = () => spk(t);
             ac.appendChild(cb); ac.appendChild(sb); d.appendChild(ac);
         }
@@ -429,10 +365,7 @@ try {
     }
     lH();
 
-    setTimeout(() => { 
-        if(!nTTS && !('speechSynthesis' in window)) $('status').textContent='❌ Нет TTS'; 
-        else if(S.key !== "__GROQ_API_KEY__") $('status').textContent=nTTS?'Готова (Native)':'Готова (Web)'; 
-    }, 1000);
+    setTimeout(() => { if(!nTTS && !('speechSynthesis' in window)) $('status').textContent='❌ Нет TTS'; else if(S.key !== "__GROQ_API_KEY__") $('status').textContent=nTTS?'Готова (Native)':'Готова (Web)'; }, 1000);
 
     function fR() {
         S.speaking=false; S.listening=false; clearTimeout(S.autoSendTimer); clearTimeout(window.micTimeout);
@@ -445,81 +378,79 @@ try {
         vib(); S.speaking=true; $('orb').classList.add('active'); $('status').textContent='Говорит...';
         var st = setTimeout(()=>{ if(S.speaking) fR(); }, 12000);
         var c = cT(t); if (nTTS) c = c.replace(/\.\.\./g, '. <break time="800ms"/> ');
+        
+        let finalRate = CHARS[S.char].rate;
+        let finalPitch = CHARS[S.char].pitch;
+        if (S.whisperMode) { finalRate *= 0.8; finalPitch = Math.max(0.5, finalPitch * 0.8); }
+
         try {
-            if(nTTS) await nTTS.speak({text:c, lang:'ru-RU', rate:CHARS[S.char].rate, pitch:CHARS[S.char].pitch});
+            if(nTTS) await nTTS.speak({text:c, lang:'ru-RU', rate:finalRate, pitch:finalPitch});
             else if('speechSynthesis' in window) {
                 window.speechSynthesis.cancel(); var u = new SpeechSynthesisUtterance(c);
-                u.lang='ru-RU'; u.rate=CHARS[S.char].rate; u.pitch=CHARS[S.char].pitch;
+                u.lang='ru-RU'; u.rate=finalRate; u.pitch=finalPitch;
                 window.speechSynthesis.speak(u); await new Promise(r=>{u.onend=r; u.onerror=r;});
             }
         } catch(e){ console.warn('TTS error', e); } finally { clearTimeout(st); fR(); }
-    }
-
+        }
     var cropper = { active: false, startX: 0, startY: 0, tx: 0, ty: 0, startTx: 0, startTy: 0, scale: 1, startScale: 1, initialDistance: 0 };
     $('camBtn').onclick = () => { vib(); $('camFallback').click(); };
     $('camFallback').onchange = (e) => {
-        const file = e.target.files[0]; if (!file) return;
-        const reader = new FileReader();
-        reader.onload = (ev) => {
-            const img = $('cropImage'); img.src = ev.target.result;
-            cropper.tx = 0; cropper.ty = 0; cropper.scale = 1; img.style.transform = `translate(0px, 0px) scale(1)`;
-            $('cropModal').style.display = 'flex';
-        };
+        const file = e.target.files[0]; if (!file) return; const reader = new FileReader();
+        reader.onload = (ev) => { const img = $('cropImage'); img.src = ev.target.result; cropper.tx = 0; cropper.ty = 0; cropper.scale = 1; img.style.transform = `translate(0px, 0px) scale(1)`; $('cropModal').style.display = 'flex'; };
         reader.readAsDataURL(file); e.target.value = '';
     };
     const cropContainer = $('cropContainer'); const cropImg = $('cropImage');
-    cropContainer.addEventListener('touchstart', (e) => {
-        e.preventDefault();
-        if (e.touches.length === 1) { cropper.active = true; cropper.startX = e.touches[0].clientX; cropper.startY = e.touches[0].clientY; cropper.startTx = cropper.tx; cropper.startTy = cropper.ty; }
-        else if (e.touches.length === 2) { cropper.active = true; cropper.startScale = cropper.scale; cropper.startTx = cropper.tx; cropper.startTy = cropper.ty; cropper.initialDistance = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY); }
-    }, { passive: false });
-    cropContainer.addEventListener('touchmove', (e) => {
-        e.preventDefault(); if (!cropper.active) return;
-        if (e.touches.length === 1) {
-            cropper.tx = cropper.startTx + (e.touches[0].clientX - cropper.startX); cropper.ty = cropper.startTy + (e.touches[0].clientY - cropper.startY);
-            cropImg.style.transform = `translate(${cropper.tx}px, ${cropper.ty}px) scale(${cropper.scale})`;
-        } else if (e.touches.length === 2) {
-            cropper.scale = Math.max(0.5, Math.min(8, cropper.startScale * (Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY) / cropper.initialDistance)));
-            cropImg.style.transform = `translate(${cropper.tx}px, ${cropper.ty}px) scale(${cropper.scale})`;
-        }
-    }, { passive: false });
-    cropContainer.addEventListener('touchend', (e) => {
-        if (e.touches.length === 0) cropper.active = false;
-        if (e.touches.length === 1 && e.changedTouches.length > 0) { cropper.startX = e.touches[0].clientX; cropper.startY = e.touches[0].clientY; cropper.startTx = cropper.tx; cropper.startTy = cropper.ty; }
-    });
+    cropContainer.addEventListener('touchstart', (e) => { e.preventDefault(); if (e.touches.length === 1) { cropper.active = true; cropper.startX = e.touches[0].clientX; cropper.startY = e.touches[0].clientY; cropper.startTx = cropper.tx; cropper.startTy = cropper.ty; } else if (e.touches.length === 2) { cropper.active = true; cropper.startScale = cropper.scale; cropper.startTx = cropper.tx; cropper.startTy = cropper.ty; cropper.initialDistance = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY); } }, { passive: false });
+    cropContainer.addEventListener('touchmove', (e) => { e.preventDefault(); if (!cropper.active) return; if (e.touches.length === 1) { cropper.tx = cropper.startTx + (e.touches[0].clientX - cropper.startX); cropper.ty = cropper.startTy + (e.touches[0].clientY - cropper.startY); cropImg.style.transform = `translate(${cropper.tx}px, ${cropper.ty}px) scale(${cropper.scale})`; } else if (e.touches.length === 2) { cropper.scale = Math.max(0.5, Math.min(8, cropper.startScale * (Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY) / cropper.initialDistance))); cropImg.style.transform = `translate(${cropper.tx}px, ${cropper.ty}px) scale(${cropper.scale})`; } }, { passive: false });
+    cropContainer.addEventListener('touchend', (e) => { if (e.touches.length === 0) cropper.active = false; if (e.touches.length === 1 && e.changedTouches.length > 0) { cropper.startX = e.touches[0].clientX; cropper.startY = e.touches[0].clientY; cropper.startTx = cropper.tx; cropper.startTy = cropper.ty; } });
     $('cropCancelBtn').onclick = () => { $('cropModal').style.display = 'none'; };
+    
+    // ИСПРАВЛЕНИЕ КАЧЕСТВА ФОТО
     $('cropDoneBtn').onclick = () => {
-        const img = $('cropImage'); const frame = document.querySelector('.crop-frame');
-        const canvas = document.createElement('canvas'); const CW = frame.clientWidth; const CH = frame.clientHeight;
-        const IW = img.naturalWidth; const IH = img.naturalHeight; const s = cropper.scale; const tx = cropper.tx; const ty = cropper.ty;
-        const cropX = (IW / 2) - (CW / (2 * s)) - (tx / s); const cropY = (IH / 2) - (CH / (2 * s)) - (ty / s);
-        canvas.width = Math.round(CW / s); canvas.height = Math.round(CH / s);
-        const ctx = canvas.getContext('2d'); const safeX = Math.max(0, Math.min(IW, cropX)); const safeY = Math.max(0, Math.min(IH, cropY));
-        ctx.drawImage(img, safeX, safeY, Math.min(IW - safeX, CW / s), Math.min(IH - safeY, CH / s), 0, 0, canvas.width, canvas.height);
-        $('cropModal').style.display = 'none'; processMathImage(canvas.toDataURL('image/jpeg', 0.9));
+        const img = $('cropImage'); const frame = document.querySelector('.crop-frame'); const canvas = document.createElement('canvas');
+        const CW = frame.clientWidth; const CH = frame.clientHeight;
+        const IW = img.naturalWidth; const IH = img.naturalHeight;
+        const s = cropper.scale; const tx = cropper.tx; const ty = cropper.ty;
+        
+        const cropW = CW / s; const cropH = CH / s;
+        const cropX = (IW / 2) - (cropW / 2) - (tx / s);
+        const cropY = (IH / 2) - (cropH / 2) - (ty / s);
+        
+        // Ограничиваем максимальный размер, чтобы не перегружать API и память
+        let finalW = cropW; let finalH = cropH;
+        const maxDim = 2048;
+        if (finalW > maxDim || finalH > maxDim) {
+            const ratio = Math.min(maxDim / finalW, maxDim / finalH);
+            finalW *= ratio; finalH *= ratio;
+        }
+        
+        canvas.width = Math.round(finalW); canvas.height = Math.round(finalH);
+        const ctx = canvas.getContext('2d');
+        const safeX = Math.max(0, Math.min(IW, cropX)); const safeY = Math.max(0, Math.min(IH, cropY));
+        const safeW = Math.min(IW - safeX, cropW); const safeH = Math.min(IH - safeY, cropH);
+        
+        ctx.drawImage(img, safeX, safeY, safeW, safeH, 0, 0, canvas.width, canvas.height);
+        $('cropModal').style.display = 'none'; processMathImage(canvas.toDataURL('image/jpeg', 0.95));
     };
+
     async function processMathImage(base64Image) {
-        aB("📷 [Фото отправлено на анализ]", 'u');
-        $('orb').classList.add('thinking'); $('status').textContent='Сканирую...';
-        var visionPrompt = `Ты — идеальный OCR-сканер математики. Твоя задача — переписать ВСЕ формулы и уравнения с фото в виде обычного текста НА РУССКОМ ЯЗЫКЕ. Дроби пиши так: "числитель/знаменатель". Не описывай картинку.`;
-        var cm1 = [{ role: 'system', content: visionPrompt }, { role: 'user', content: [{ type: 'text', text: 'Выдай математический текст.' }, { type: 'image_url', image_url: { url: base64Image } }] }];
+        aB("📷 [Фото отправлено на анализ]", 'u'); $('orb').classList.add('thinking'); $('status').textContent='Сканирую...';
+        var visionPrompt = `Ты — идеальный OCR-сканер. Твоя задача — переписать ВСЕ формулы, текст и уравнения с фото в виде обычного текста НА РУССКОМ ЯЗЫКЕ. Дроби пиши так: "числитель/знаменатель". Не описывай картинку, просто выдай текст.`;
+        var cm1 = [{ role: 'system', content: visionPrompt }, { role: 'user', content: [{ type: 'text', text: 'Выдай математический или текстовый контент.' }, { type: 'image_url', image_url: { url: base64Image } }] }];
         try {
-            var raw1 = await callAI(cm1, { signal: null });
+            // Принудительно используем Gemini для зрения, так как Groq падает на массивах
+            var raw1 = await callGemini(cm1, { signal: null }); 
             var extractedText = cT(raw1);
-            aM(`📝 Распознано с фото:\n${extractedText}`, 'p', false);
-            S.history.push({ role: 'user', content: 'Вот задание с фото: ' + extractedText }); sH(); 
+            aM(`📝 Распознано с фото:\n${extractedText}`, 'p', false); S.history.push({ role: 'user', content: 'Вот задание с фото: ' + extractedText }); sH(); 
             $('status').textContent='Решаю...';
-            var solvePrompt = CHARS[S.char].prompt + `\n\nПользователь прислал фото с математикой. OCR-сканер распознал следующий текст:\n"${extractedText}"\n\nТвоя задача: реши эти примеры и уравнения пошагово. ОТВЕЧАЙ ТОЛЬКО НА РУССКОМ ЯЗЫКЕ.`;
-            var cm2 = [{ role: 'system', content: solvePrompt }, { role: 'user', content: 'Реши эти задания.' }];
-            var raw2 = await callAI(cm2, { signal: null });
+            var solvePrompt = CHARS[S.char].prompt + `\n\nПользователь прислал фото. OCR-сканер распознал следующий текст:\n"${extractedText}"\n\nТвоя задача: реши эти примеры, либо опиши/объясни текст. ОТВЕЧАЙ ТОЛЬКО НА РУССКОМ ЯЗЫКЕ.`;
+            var cm2 = [{ role: 'system', content: solvePrompt }, { role: 'user', content: 'Выполни задачу.' }];
+            var raw2 = await callAI(cm2, { signal: null }); 
             var solution = cT(raw2); aM(solution, 'p'); S.history.push({ role: 'assistant', content: solution }); sH(); spk(solution);
-        } catch(e) { $('orb').classList.remove('thinking'); aM('ОШИБКА: ' + e.message, 'p'); fR(); }
+        } catch(e) { $('orb').classList.remove('thinking'); aM('ОШИБКА Vision: ' + e.message, 'p'); fR(); }
     }
 
-    function findCharsInText(text) {
-        const low = text.toLowerCase();
-        return Object.keys(CHARS).filter(k => CHARS[k] && CHARS[k].name && low.includes(CHARS[k].name.toLowerCase()));
-    }
+    function findCharsInText(text) { const low = text.toLowerCase(); return Object.keys(CHARS).filter(k => CHARS[k] && CHARS[k].name && low.includes(CHARS[k].name.toLowerCase())); }
 
     async function snd() {
         fR(); var t = $('inp').value.trim(); if(!t || S.speaking) return; 
@@ -531,11 +462,16 @@ try {
 
         vib(); $('inp').value=''; toggleBtns(); aM(t,'u');
 
-        // 🎨 ГЕНЕРАЦИЯ КАРТИНОК
+        if (/(?:включи|выключи)\s+фонарик/i.test(t)) {
+            if (!nFlash) return aM("Фонарик недоступен.", 'p');
+            const isTurnOn = /включи/i.test(t);
+            try { await nFlash[isTurnOn ? 'enable' : 'disable'](); aM(isTurnOn ? "🔦 Фонарик включен." : "🔦 Фонарик выключен.", 'p'); } catch (e) { aM("Ошибка фонарика: " + e.message, 'p'); }
+            return;
+        }
+
         if (/нарисуй|сгенерируй картинку|покажи картинку/i.test(t)) {
             const genMsg = document.createElement('div'); genMsg.className = 'msg p'; genMsg.textContent = "🎨 Генерирую...";
             $('chat').appendChild(genMsg); $('chat').scrollTop = $('chat').scrollHeight;
-            
             try {
                 const imgPromptSys = "Ты - художник. Переведи запрос пользователя на английский язык для нейросети. Отвечай ТОЛЬКО промптом на английском, без лишних слов.";
                 let enPrompt = await callAI([{role:'system', content: imgPromptSys}, {role:'user', content: t}], { signal: null });
@@ -547,41 +483,31 @@ try {
             return; 
         }
 
-        // 🎭 АВТОДИАЛОГ
         if (/(?:запусти|начни|сделай|устрой)\s+диалог/i.test(t)) {
-            const found = findCharsInText(t);
-            let p1_key = null, p2_key = null;
+            const found = findCharsInText(t); let p1_key = null, p2_key = null;
             if (found.length >= 2) { p1_key = found[0]; p2_key = found[1]; }
             else if (found.length === 1) { p1_key = S.char; p2_key = found[0]; }
             if (p1_key && p2_key && p1_key !== p2_key) {
                 aM(`🎭 Начинаю диалог между ${CHARS[p1_key].name} и ${CHARS[p2_key].name}.\n(Скажи "Стоп" или нажми красную кнопку, чтобы прервать)`, 'p', false);
-                S.autoDialogueActive = true; S.autoDialogueAbort = new AbortController();
-                $('stopAutoBtn').style.display = 'block';
-                await runAutoDialogue(p1_key, p2_key, 4, S.autoDialogueAbort.signal);
-                return;
-            } else if (p1_key === p2_key) { aM("С самой собой разговаривать не буду. Выбери другого собеседника.", 'p'); return; }
-            else { aM("С кем поговорить? Назови персонажей, например: начни диалог дворецкий и подросток.", 'p'); return; }
+                S.autoDialogueActive = true; S.autoDialogueAbort = new AbortController(); $('stopAutoBtn').style.display = 'block';
+                await runAutoDialogue(p1_key, p2_key, 4, S.autoDialogueAbort.signal); return;
+            } else if (p1_key === p2_key) { aM("С самой собой разговаривать не буду.", 'p'); return; }
+            else { aM("С кем поговорить? Назови персонажей.", 'p'); return; }
         }
 
-        // ⚔️ БАТЛ
         if (/(?:батл|баттл|битв|спор|дуэл|дебат|сразись|сражение)/i.test(t) && /(?:устрой|запусти|начни|сделай|давай|хочу|проведи)/i.test(t)) {
-            const found = findCharsInText(t);
-            let p1 = null, p2 = null;
+            const found = findCharsInText(t); let p1 = null, p2 = null;
             if (found.length >= 2) { p1 = found[0]; p2 = found[1]; }
             else if (found.length === 1) { p1 = S.char; p2 = found[0]; }
             if (p1 && p2 && p1 !== p2) {
-                aM(`⚔️ БАТЛ: ${CHARS[p1].name} vs ${CHARS[p2].name}\n3 раунда + вердикт судьи.\n(Красная кнопка или «стоп» — прервать)`, 'p', false);
-                S.autoDialogueActive = true; S.autoDialogueAbort = new AbortController();
-                $('stopAutoBtn').style.display = 'block';
-                await runBattleMode(p1, p2, 3, S.autoDialogueAbort.signal);
-                return;
-            } else if (p1 === p2) { aM("Персонаж не может батлиться сам с собой. Выбери второго.", 'p'); return; }
-            else { aM("С кем батл? Назови двух персонажей, например: «устрой батл дворецкий и подросток».", 'p'); return; }
+                aM(`⚔️ БАТЛ: ${CHARS[p1].name} vs ${CHARS[p2].name}\n3 раунда + вердикт судьи.`, 'p', false);
+                S.autoDialogueActive = true; S.autoDialogueAbort = new AbortController(); $('stopAutoBtn').style.display = 'block';
+                await runBattleMode(p1, p2, 3, S.autoDialogueAbort.signal); return;
+            } else if (p1 === p2) { aM("Выбери второго.", 'p'); return; }
+            else { aM("С кем батл? Назови двух.", 'p'); return; }
         }
 
-        if (/давай сыграем|города|данетки|квест|игра/i.test(t) && !S.isGameMode) {
-            S.isGameMode = true; aM("🎲 Режим Ведущего активирован. Правила игры будут соблюдаться. Погнали!\n(Скажи \"Выйти из игры\", чтобы закончить)", 'p');
-        }
+        if (/давай сыграем|города|данетки|квест|игра/i.test(t) && !S.isGameMode) { S.isGameMode = true; aM("🎲 Режим Ведущего активирован.", 'p'); }
 
         $('orb').classList.add('thinking'); $('status').textContent='Думает...';
         var contextData = "";
@@ -592,79 +518,52 @@ try {
 
         var memoryStr = S.memory.length > 0 ? `[Факты о пользователе: ${S.memory.join('. ')}]` : '';
         var sys = CHARS[S.char].prompt + ` ${memoryStr} [Инфо: заряд телефона ${S.battery}.]` + contextData;
-        sys += `\n\nВАЖНО: Если пользователь сообщает новый факт о себе (например, его имя, предпочтения, важные события), добавь в САМЫЙ КОНЕЦ своего ответа тег [MEM: факт]. Пример: "Приятно познакомиться, сэр! [MEM: пользователя зовут Алекс]"`;
-        
-        if (S.isGameMode) sys += `\n\nРЕЖИМ ИГРЫ: Ты сейчас выступаешь как Game Master. Веди игру "Города" или "Данетки", запоминая ответы пользователя. Будь креативным. Запрещено выходить из роли!`;
+        sys += `\n\nВАЖНО: Если пользователь сообщает новый факт о себе, добавь в САМЫЙ КОНЕЦ ответа тег [MEM: факт]. Пример: "Приятно познакомиться! [MEM: имя Алекс]"`;
+        if (S.isGameMode) sys += `\n\nРЕЖИМ ИГРЫ: Ты сейчас Game Master. Веди игру, запоминая ответы. Будь креативным.`;
 
         var cm = [{role:'system', content:sys}].concat(S.history.slice(-6));
         
         let streamCtx = null;
         const onChunk = (chunk) => {
-            if (!streamCtx) {
-                let d = document.createElement('div'); d.className = 'msg p';
-                let sp = document.createElement('span'); d.appendChild(sp);
-                $('chat').appendChild(d);
-                streamCtx = { d, sp };
-            }
-            streamCtx.sp.textContent += chunk;
-            $('chat').scrollTop = $('chat').scrollHeight;
+            if (!streamCtx) { let d = document.createElement('div'); d.className = 'msg p'; let sp = document.createElement('span'); d.appendChild(sp); $('chat').appendChild(d); streamCtx = { d, sp }; }
+            streamCtx.sp.textContent += chunk; $('chat').scrollTop = $('chat').scrollHeight;
         };
 
         callAI(cm, { signal: S.apiAbort.signal, stream: true, onChunk })
         .then(raw => {
             clearTimeout(to); $('orb').classList.remove('thinking');
             var rp = cT(raw);
-            
             const memMatch = rp.match(/\[MEM:\s*(.*?)\]/i);
-            if (memMatch) {
-                S.memory.push(memMatch[1]);
-                localStorage.setItem('p_mem', JSON.stringify(S.memory));
-                rp = rp.replace(memMatch[0], '').trim();
-            }
+            if (memMatch) { S.memory.push(memMatch[1]); localStorage.setItem('p_mem', JSON.stringify(S.memory)); rp = rp.replace(memMatch[0], '').trim(); }
 
             if (streamCtx) {
                 streamCtx.sp.textContent = rp; 
                 var ac = document.createElement('span'); ac.className = 'msg-actions';
-                var cb = document.createElement('button'); cb.className = 'icon-btn'; cb.textContent = '📋';
-                cb.onclick = () => { if(navigator.clipboard) navigator.clipboard.writeText(rp).then(()=>{cb.textContent='✅'; setTimeout(()=>cb.textContent='📋',1500);}); };
+                var cb = document.createElement('button'); cb.className = 'icon-btn'; cb.textContent = '📋'; cb.onclick = () => { if(navigator.clipboard) navigator.clipboard.writeText(rp).then(()=>{cb.textContent='✅'; setTimeout(()=>cb.textContent='📋',1500);}); };
                 var sb = document.createElement('button'); sb.className = 'icon-btn'; sb.textContent = '🔊'; sb.onclick = () => spk(rp);
                 ac.appendChild(cb); ac.appendChild(sb); streamCtx.d.appendChild(ac);
             } else { aM(rp, 'p'); }
             
-            S.history.push({role:'assistant', content: rp}); sH();
-            spk(rp);
-            
-            if (S.lastProvider && S.lastProvider !== S.provider) {
-                $('status').textContent = `Готова (${S.lastProvider} fallback)`;
-                setTimeout(() => $('status').textContent = 'Готова', 3000);
-            }
-        }).catch(e => {
-            clearTimeout(to); fR();
-            if (e.name !== 'AbortError') aM('ОШИБКА: ' + e.message, 'p');
-        });
-                }
+            S.history.push({role:'assistant', content: rp}); sH(); spk(rp);
+            if (S.lastProvider && S.lastProvider !== S.provider) { $('status').textContent = `Готова (${S.lastProvider} fallback)`; setTimeout(() => $('status').textContent = 'Готова', 3000); }
+        }).catch(e => { clearTimeout(to); fR(); if (e.name !== 'AbortError') aM('ОШИБКА: ' + e.message, 'p'); });
+    }
+
     async function runAutoDialogue(char1Key, char2Key, turns = 4, signal) {
         let c1 = CHARS[char1Key]; let c2 = CHARS[char2Key]; let history = [];
         for (let i = 0; i < turns; i++) {
             if (!S.autoDialogueActive || signal.aborted) break;
             $('status').textContent = `[${c1.name}] говорит...`;
-            let prompt1 = c1.prompt + `\n\nТы общаешься с ${c2.name}. Ответь ему коротко и в своем стиле.`;
-            let cm1 = [{role:'system', content: prompt1}, ...history.slice(-4)];
+            let cm1 = [{role:'system', content: c1.prompt + `\n\nТы общаешься с ${c2.name}. Ответь ему коротко и в своем стиле.`}, ...history.slice(-4)];
             if (history.length === 0) cm1.push({role:'user', content: `Начни диалог с ${c2.name}.`});
-            let ans1;
-            try { ans1 = cT(await callAI(cm1, { signal })); } catch (e) { if (e.name !== 'AbortError') aM('⚠️ Ошибка API: ' + e.message, 'p', false); break; }
+            let ans1; try { ans1 = cT(await callAI(cm1, { signal })); } catch (e) { if (e.name !== 'AbortError') aM('⚠️ Ошибка API: ' + e.message, 'p', false); break; }
             if (!S.autoDialogueActive || signal.aborted) break;
-            aM(`[${c1.name}]: ${ans1}`, 'p', false); history.push({role:'assistant', content:`[${c1.name}]: ${ans1}`});
-            await spkAs(ans1, c1, signal); if (!S.autoDialogueActive || signal.aborted) break;
-
+            aM(`[${c1.name}]: ${ans1}`, 'p', false); history.push({role:'assistant', content:`[${c1.name}]: ${ans1}`}); await spkAs(ans1, c1, signal); if (!S.autoDialogueActive || signal.aborted) break;
             $('status').textContent = `[${c2.name}] говорит...`;
-            let prompt2 = c2.prompt + `\n\nТы общаешься с ${c1.name}. Ответь ему.`;
-            let cm2 = [{role:'system', content: prompt2}, ...history.slice(-4)];
-            let ans2;
-            try { ans2 = cT(await callAI(cm2, { signal })); } catch (e) { if (e.name !== 'AbortError') aM('⚠️ Ошибка API: ' + e.message, 'p', false); break; }
+            let cm2 = [{role:'system', content: c2.prompt + `\n\nТы общаешься с ${c1.name}. Ответь ему.`}, ...history.slice(-4)];
+            let ans2; try { ans2 = cT(await callAI(cm2, { signal })); } catch (e) { if (e.name !== 'AbortError') aM('⚠️ Ошибка API: ' + e.message, 'p', false); break; }
             if (!S.autoDialogueActive || signal.aborted) break;
-            aM(`[${c2.name}]: ${ans2}`, 'p', false); history.push({role:'assistant', content:`[${c2.name}]: ${ans2}`});
-            await spkAs(ans2, c2, signal);
+            aM(`[${c2.name}]: ${ans2}`, 'p', false); history.push({role:'assistant', content:`[${c2.name}]: ${ans2}`}); await spkAs(ans2, c2, signal);
         }
         if (S.autoDialogueActive) { $('status').textContent = 'Диалог завершен.'; aM("🎭 Диалог персонажей завершен.", 'p', false); }
         S.autoDialogueActive = false; S.autoDialogueAbort = null; $('stopAutoBtn').style.display = 'none'; fR();
@@ -675,15 +574,11 @@ try {
         async function turn(speaker, opponent, lastLine, roundNum, label) {
             if (!S.autoDialogueActive || signal.aborted) return null;
             $('status').textContent = `⚔️ Раунд ${roundNum}: ${speaker.name}`; $('orb').classList.add('thinking');
-            const prompt = speaker.prompt + `\n\nТы в словесном БАТЛЕ против ${opponent.name}. Отвечай дерзко, в своём стиле, но БЕЗ оскорблений по признакам (раса, пол, религия, внешность, здоровье). Бей по аргументам, стилю и поведению соперника. Реплики короткие (1-3 предложения).`;
+            const prompt = speaker.prompt + `\n\nТы в словесном БАТЛЕ против ${opponent.name}. Отвечай дерзко, в своём стиле, но БЕЗ оскорблений по признакам. Бей по аргументам. Реплики короткие. ВАЖНО: Не повторяй то, что ты уже говорил ранее. Каждый ответ должен быть уникальным!`;
             const cm = [{ role: 'system', content: prompt }, ...history.slice(-4)];
-            cm.push({ role: 'user', content: lastLine ? `${opponent.name} только что сказал: "${lastLine}". Ответь!` : `Батл начинается. Первое слово тебе — обратись к ${opponent.name} с вызовом.` });
-            try {
-                const ans = cT(await callAI(cm, { signal }));
-                aM(`⚔️ [${label}]: ${ans}`, 'p', false);
-                history.push({ role: 'assistant', content: `[${label}]: ${ans}` });
-                await spkAs(ans, speaker, signal); return ans;
-            } catch (e) { if (e.name !== 'AbortError') aM('⚠️ Ошибка API: ' + e.message, 'p', false); return null; } finally { $('orb').classList.remove('thinking'); }
+            cm.push({ role: 'user', content: lastLine ? `${opponent.name} только что сказал: "${lastLine}". Ответь!` : `Батл начинается. Первое слово тебе.` });
+            try { const ans = cT(await callAI(cm, { signal })); aM(`⚔️ [${label}]: ${ans}`, 'p', false); history.push({ role: 'assistant', content: `[${label}]: ${ans}` }); await spkAs(ans, speaker, signal); return ans; } 
+            catch (e) { if (e.name !== 'AbortError') aM('⚠️ Ошибка API: ' + e.message, 'p', false); return null; } finally { $('orb').classList.remove('thinking'); }
         }
         for (let r = 1; r <= rounds; r++) {
             if (!S.autoDialogueActive || signal.aborted) break;
@@ -695,33 +590,25 @@ try {
             try {
                 const judgePrompt = 'Ты — беспристрастный судья словесного батла. Проанализируй диалог и объяви победителя. Верни: одно предложение — кто победил, и 2–3 предложения — почему. Без оскорблений. ТОЛЬКО НА РУССКОМ ЯЗЫКЕ.';
                 const judgeCm = [{ role: 'system', content: judgePrompt }, { role: 'user', content: `Батл между ${c1.name} и ${c2.name}:\n\n${history.map(h => h.content).join('\n\n')}\n\nКто победил?` }];
-                const verdict = cT(await callAI(judgeCm, { signal }));
-                aM(`🏆 ВЕРДИКТ:\n${verdict}`, 'p', false); await spkAs(verdict, c1, signal);
+                const verdict = cT(await callAI(judgeCm, { signal, temperature: 1.0 })); aM(`🏆 ВЕРДИКТ:\n${verdict}`, 'p', false); await spkAs(verdict, c1, signal);
             } catch (e) { if (e.name !== 'AbortError') console.warn('Judge error', e); }
         }
         if (S.autoDialogueActive && !signal.aborted) aM('⚔️ Батл завершён.', 'p', false);
         S.autoDialogueActive = false; S.autoDialogueAbort = null; $('stopAutoBtn').style.display = 'none'; fR();
     }
 
-    window.stopAutoDialogue = function() {
-        if (S.autoDialogueActive) {
-            S.autoDialogueActive = false; if (S.autoDialogueAbort) S.autoDialogueAbort.abort();
-            aM("🛑 Диалог остановлен вручную.", 'p'); $('stopAutoBtn').style.display = 'none'; fR();
-        }
-    };
+    window.stopAutoDialogue = function() { if (S.autoDialogueActive) { S.autoDialogueActive = false; if (S.autoDialogueAbort) S.autoDialogueAbort.abort(); aM("🛑 Диалог остановлен вручную.", 'p'); $('stopAutoBtn').style.display = 'none'; fR(); } };
 
     async function spkAs(text, charProfile, signal) {
         if(!text || (signal && signal.aborted)) return;
         var c = cT(text); if (nTTS) c = c.replace(/\.\.\./g, '. <break time="800ms"/> ');
+        let finalRate = charProfile.rate; let finalPitch = charProfile.pitch;
+        if (S.whisperMode) { finalRate *= 0.8; finalPitch = Math.max(0.5, finalPitch * 0.8); }
         try {
-            if(nTTS) {
-                await nTTS.speak({text:c, lang:'ru-RU', rate:charProfile.rate, pitch:charProfile.pitch});
-                if (signal && signal.aborted) { await nTTS.stop(); return; }
-                await new Promise(r => setTimeout(r, 500));
-            } else if ('speechSynthesis' in window) {
+            if(nTTS) { await nTTS.speak({text:c, lang:'ru-RU', rate:finalRate, pitch:finalPitch}); if (signal && signal.aborted) { await nTTS.stop(); return; } await new Promise(r => setTimeout(r, 500)); }
+            else if ('speechSynthesis' in window) {
                 window.speechSynthesis.cancel(); var u = new SpeechSynthesisUtterance(c);
-                u.lang='ru-RU'; u.rate=charProfile.rate; u.pitch=charProfile.pitch;
-                window.speechSynthesis.speak(u);
+                u.lang='ru-RU'; u.rate=finalRate; u.pitch=finalPitch; window.speechSynthesis.speak(u);
                 await new Promise(r => { u.onend = r; u.onerror = r; if (signal) signal.addEventListener('abort', () => { window.speechSynthesis.cancel(); r(); }); });
                 if (signal && signal.aborted) return; await new Promise(r => setTimeout(r, 500)); 
             }
@@ -741,17 +628,12 @@ try {
                 var ot = $('inp').value.trim(); if(ot) ot += ' ';
                 nSTT.addListener('partialResults', d=>{ if(d.matches && d.matches.length>0) { $('inp').value = ot + d.matches[0]; toggleBtns(); } });
                 nSTT.addListener('listeningState', d=>{
-                    if(d.status==='started'){
-                        vib(); S.listening=true; $('mic').classList.add('on'); $('orb').classList.add('listening'); $('status').textContent='Слушаю...';
-                        window.micTimeout = setTimeout(async()=>{ await fSM(); }, 15000);
-                    } else {
+                    if(d.status==='started'){ vib(); S.listening=true; $('mic').classList.add('on'); $('orb').classList.add('listening'); $('status').textContent='Слушаю...'; window.micTimeout = setTimeout(async()=>{ await fSM(); }, 15000); }
+                    else {
                         S.listening=false; clearTimeout(window.micTimeout); $('mic').classList.remove('on'); $('orb').classList.remove('listening');
                         if($('inp').value.trim()){
                             var el=0; $('status').classList.add('waiting'); $('orb').classList.add('waiting-timer');
-                            S.autoSendTimer = setInterval(()=>{
-                                el+=0.1; var cl=(S.pauseTime-el).toFixed(1); if(cl<0) cl=0; $('status').textContent=`Жду... (${cl}с)`;
-                                if(el >= S.pauseTime){ clearInterval(S.autoSendTimer); S.autoSendTimer=null; $('orb').classList.remove('waiting-timer'); $('status').classList.remove('waiting'); snd(); }
-                            }, 100);
+                            S.autoSendTimer = setInterval(()=>{ el+=0.1; var cl=(S.pauseTime-el).toFixed(1); if(cl<0) cl=0; $('status').textContent=`Жду... (${cl}с)`; if(el >= S.pauseTime){ clearInterval(S.autoSendTimer); S.autoSendTimer=null; $('orb').classList.remove('waiting-timer'); $('status').classList.remove('waiting'); snd(); } }, 100);
                         } else fR();
                     }
                 });
@@ -760,10 +642,35 @@ try {
         } else { alert("Микрофон недоступен."); }
     }
 
-    $('sendBtn').onclick = snd; $('mic').onclick = tM; $('orb').onclick = tM;
+    // ОСТАНОВКА ДИАЛОГА ЧЕРЕЗ СФЕРУ
+    $('orb').onclick = () => {
+        if (S.speaking) {
+            vib();
+            if (nTTS) try { nTTS.stop(); } catch(e){}
+            if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+            if (S.apiAbort) { S.apiAbort.abort(); S.apiAbort = null; }
+            fR();
+            aM("🛑 Остановлено.", 'p', false);
+        } else {
+            tM();
+        }
+    };
+
+    $('sendBtn').onclick = snd; $('mic').onclick = tM;
     $('gear').onclick = ()=>{ vib(); $('modal').style.display='flex'; };
     $('closeBtn').onclick = ()=>{ vib(); $('modal').style.display='none'; };
-    
+    $('whisperBtn').onclick = () => { vib(); S.whisperMode = !S.whisperMode; $('whisperBtn').classList.toggle('on', S.whisperMode); aM(S.whisperMode ? "🌙 Режим шёпота включен." : "☀️ Обычный голос.", 'p'); };
+
+    $('clipBtn').onclick = async () => {
+        vib();
+        if (!nClip) return alert("Плагин буфера обмена не установлен.");
+        try {
+            const { value } = await nClip.read();
+            if (value) { $('inp').value = value; toggleBtns(); }
+            else alert("Буфер обмена пуст.");
+        } catch (e) { alert("Ошибка буфера: " + e.message); }
+    };
+
     if($('providerSel')) {
         $('providerSel').value = S.provider; $('groqModelSel').value = S.groqModel; $('geminiModelSel').value = S.geminiModel;
         $('providerSel').onchange = e => { S.provider = e.target.value; localStorage.setItem('p_provider', S.provider); };
@@ -771,36 +678,28 @@ try {
         $('geminiModelSel').onchange = e => { S.geminiModel = e.target.value; localStorage.setItem('p_gemini_model', S.geminiModel); };
     }
 
-    $('saveBtn').onclick = ()=>{ vib(); S.pauseTime = parseFloat($('inpPause').value); localStorage.setItem('p_pause', S.pauseTime); $('modal').style.display='none'; aM('Настройки сохранены','p'); };
-
-    $('addCharBtn').onclick = ()=>{
-        vib(); var n = $('customName').value.trim(), em = $('customEmoji').value.trim()||'🤖', pr = $('customPrompt').value.trim();
-        if(!n || !pr) return alert("Заполни имя и характер!");
-        var id = 'custom_' + Date.now(); CHARS[id] = { name:n, emoji:em, pitch:1.0, rate:1.0, prompt:pr+sR, hello:"Привет! Я "+n };
-        cC[id] = CHARS[id]; localStorage.setItem('p_cc', JSON.stringify(cC));
-        $('customName').value=''; $('customEmoji').value=''; $('customPrompt').value=''; rC(); sCh(id); $('modal').style.display='none';
+    $('briefingToggle').onchange = async (e) => {
+        if (e.target.checked) {
+            if (!nNotif) return alert("Уведомления недоступны.");
+            let perm = await nNotif.requestPermissions();
+            if (perm.display !== 'granted') return alert("Нет разрешения на уведомления.");
+            await nNotif.schedule({ notifications: [{ id: 1, title: "Chimera", body: "Доброе утро! Нажми, чтобы услышать брифинг.", schedule: { allowWhileIdle: true, on: { hour: 8, minute: 0 }, repeats: true } }] });
+            localStorage.setItem('p_briefing', 'true');
+        } else {
+            if (nNotif) await nNotif.cancel({ notifications: [{ id: 1 }] });
+            localStorage.setItem('p_briefing', 'false');
+        }
     };
 
+    $('saveBtn').onclick = ()=>{ vib(); S.pauseTime = parseFloat($('inpPause').value); localStorage.setItem('p_pause', S.pauseTime); $('modal').style.display='none'; aM('Настройки сохранены','p'); };
+    $('addCharBtn').onclick = ()=>{ vib(); var n = $('customName').value.trim(), em = $('customEmoji').value.trim()||'🤖', pr = $('customPrompt').value.trim(); if(!n || !pr) return alert("Заполни имя и характер!"); var id = 'custom_' + Date.now(); CHARS[id] = { name:n, emoji:em, pitch:1.0, rate:1.0, prompt:pr+sR, hello:"Привет! Я "+n }; cC[id] = CHARS[id]; localStorage.setItem('p_cc', JSON.stringify(cC)); $('customName').value=''; $('customEmoji').value=''; $('customPrompt').value=''; rC(); sCh(id); $('modal').style.display='none'; };
     $('clearChatBtn').onclick = ()=>{ vib(); S.history=[]; localStorage.removeItem('p_h'); $('chat').innerHTML=''; $('modal').style.display='none'; aM("История очищена.",'p'); };
     function sCh(id){ S.char=id; rC(); spk(CHARS[id].hello); }
 
     $('diagBtn').onclick = ()=>{ vib(); $('diagModal').style.display='flex'; };
     $('closeDiagBtn').onclick = ()=>{ vib(); $('diagModal').style.display='none'; };
-    
-    $('forceResetBtn').onclick = async ()=>{
-        fR(); 
-        try{ if(nTTS) await nTTS.stop(); }catch(e){} 
-        try{ if(nSTT) await nSTT.stop(); }catch(e){}
-        if(S.apiAbort){ S.apiAbort.abort(); S.apiAbort=null; }
-        if(S.autoDialogueAbort){ S.autoDialogueAbort.abort(); S.autoDialogueAbort=null; }
-        S.autoDialogueActive = false; S.isGameMode = false; $('stopAutoBtn').style.display = 'none';
-        $('modal').style.display='none'; aM('> ✅ Система сброшена. Зависания устранены.', 'p');
-    };
-} catch(gE) {
-    document.getElementById('status').textContent = 'ОШИБКА: ' + gE.message;
-    document.getElementById('status').style.color = 'red';
-    console.error(gE);
-}
+    $('forceResetBtn').onclick = async ()=>{ fR(); try{ if(nTTS) await nTTS.stop(); }catch(e){} try{ if(nSTT) await nSTT.stop(); }catch(e){} if(S.apiAbort){ S.apiAbort.abort(); S.apiAbort=null; } if(S.autoDialogueAbort){ S.autoDialogueAbort.abort(); S.autoDialogueAbort=null; } S.autoDialogueActive = false; S.isGameMode = false; $('stopAutoBtn').style.display = 'none'; $('modal').style.display='none'; aM('> ✅ Система сброшена.', 'p'); };
+} catch(gE) { document.getElementById('status').textContent = 'ОШИБКА: ' + gE.message; document.getElementById('status').style.color = 'red'; console.error(gE); }
 </script>
 </body>
 </html>
