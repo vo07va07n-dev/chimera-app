@@ -50,17 +50,41 @@ jobs:
           node -e "let c=require('./capacitor.config.json'); c.appName='${{ github.event.inputs.appName }}'; c.appId='com.chimera.app'; require('fs').writeFileSync('./capacitor.config.json', JSON.stringify(c, null, 2));"
         
       - name: Add Android
-        run: npx cap add android
+        run: |
+          if [ ! -d "android" ]; then
+            npx cap add android
+          else
+            echo "Android platform already exists, skipping cap add."
+          fi
         
       - name: Generate Icons
         run: |
           mkdir -p resources
-          if [ -f icon.png ]; then mv icon.png resources/icon.png; fi
+          if [ -f icon.png ]; then cp icon.png resources/icon.png; fi
           npx @capacitor/assets generate --android
           
+      # 🔥 ОБНОВЛЕННЫЙ БЛОК РАЗРЕШЕНИЙ
       - name: Permissions
         run: |
-          node -e "const fs=require('fs'); let p='android/app/src/main/AndroidManifest.xml'; let c=fs.readFileSync(p,'utf8'); let perms=['<uses-permission android:name=\"android.permission.RECORD_AUDIO\" />','<uses-permission android:name=\"android.permission.INTERNET\" />','<uses-permission android:name=\"android.permission.VIBRATE\" />','<uses-permission android:name=\"android.permission.POST_NOTIFICATIONS\" />']; let m=perms.filter(x=>!c.includes(x)); if(m.length>0){ c=c.replace('<application',m.join('\n')+'\n<application'); fs.writeFileSync(p,c);}"
+          node -e "
+            const fs = require('fs');
+            const p = 'android/app/src/main/AndroidManifest.xml';
+            let c = fs.readFileSync(p, 'utf8');
+            let perms = [
+              '<uses-permission android:name=\"android.permission.RECORD_AUDIO\" />',
+              '<uses-permission android:name=\"android.permission.INTERNET\" />',
+              '<uses-permission android:name=\"android.permission.VIBRATE\" />',
+              '<uses-permission android:name=\"android.permission.POST_NOTIFICATIONS\" />',
+              '<uses-permission android:name=\"android.permission.CAMERA\" />',
+              '<uses-permission android:name=\"android.permission.FLASHLIGHT\" />'
+            ];
+            let m = perms.filter(x => !c.includes(x));
+            if (m.length > 0) {
+              c = c.replace('<application', m.join('\n') + '\n<application');
+              fs.writeFileSync(p, c);
+              console.log('Permissions injected successfully!');
+            }
+          "
         
       - name: Sync Android
         run: npx cap sync android
@@ -71,8 +95,15 @@ jobs:
           chmod +x gradlew
           ./gradlew assembleDebug
           
+      # 📦 СОХРАНЯЕМ АРТЕФАКТ С ВЕРСИЕЙ
+      - name: Rename APK
+        run: |
+          cp android/app/build/outputs/apk/debug/app-debug.apk \
+             "android/app/build/outputs/apk/debug/${{ github.event.inputs.appName }}-v${{ github.event.inputs.appVersion }}.apk"
+             
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ github.event.inputs.appName }}-APK
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          name: ${{ github.event.inputs.appName }}-v${{ github.event.inputs.appVersion }}-APK
+          path: android/app/build/outputs/apk/debug/${{ github.event.inputs.appName }}-v${{ github.event.inputs.appVersion }}.apk
+          retention-days: 30
