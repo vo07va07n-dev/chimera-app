@@ -2,16 +2,13 @@
   "name": "chimera-builder",
   "version": "1.0.0",
   "dependencies": {
-  "@capacitor/android": "^6.0.0",
-  "@capacitor/app": "^6.0.0",
-  "@capacitor/core": "^6.0.0",
-  "@capacitor/clipboard": "^6.0.0", 
-  "@capacitor/local-notifications": "^6.0.0",
-  "@capacitor-community/flashlight": "^6.0.0",
-  "@capacitor/haptics": "^6.0.0",
-  "@capacitor/speech-recognition": "^6.0.0",
-  "@capacitor/text-to-speech": "^6.0.0"
-},
+    "@capacitor/android": "^6.0.0",
+    "@capacitor/core": "^6.0.0",
+    "@capacitor-community/text-to-speech": "^5.0.0",
+    "@capacitor-community/speech-recognition": "^6.0.0",
+    "@capacitor/haptics": "^6.0.0",
+    "@capacitor/device": "^6.0.0"
+  },
   "devDependencies": {
     "@capacitor/cli": "^6.0.0"
   }
