@@ -130,6 +130,14 @@ textarea{border-radius:16px;resize:vertical;min-height:80px}
     <input type="checkbox" id="briefingToggle" style="width: 24px; height: 24px; accent-color: var(--cy); vertical-align: middle;">
 </div>
 
+<label>Раунды в батле (до вердикта)</label>
+<select id="battleRoundsSel">
+    <option value="30">30 раунда (Короткий)</option>
+    <option value="50">50 раундов (Стандарт)</option>
+    <option value="70">70 раундов (Хардкор)</option>
+    <option value="100">100 раундов (Эпичный)</option>
+</select>
+
 <label>Провайдер ИИ</label>
 <select id="providerSel">
     <option value="groq">Groq (GPT-OSS 120B)</option>
@@ -176,6 +184,7 @@ textarea{border-radius:16px;resize:vertical;min-height:80px}
         <h4>🎭 Персонажи и Батл</h4>
         <p>Запусти <b>диалог</b>: <code>начни диалог дворецкий и подросток</code>.</p>
         <p>Запусти <b>батл</b>: <code>устрой батл училка и депрессивный ии</code>.</p>
+        <p>Количество раундов батла настраивается в <b>⚙️ Настройках</b>.</p>
     </div>
     <div class="help-section">
         <h4>✨ Фишки</h4>
@@ -206,6 +215,7 @@ try {
         key:'', char:'butler', speaking:false, listening:false, 
         apiAbort:null, autoSendTimer:null, history:[], 
         battery:'100', pauseTime:parseFloat(localStorage.getItem('p_pause')||'3'), 
+        battleRounds: parseInt(localStorage.getItem('p_battle_rounds') || '5'),
         isGameMode: false, autoDialogueActive: false, autoDialogueAbort: null,
         provider: localStorage.getItem('p_provider') || 'groq',
         groqModel: localStorage.getItem('p_groq_model') || 'openai/gpt-oss-120b',
@@ -217,10 +227,10 @@ try {
     var sR = " ВАЖНО: Пиши только чистый текст. Запрещено использовать Markdown (звездочки *, решетки #), кавычки и апострофы. ОБЯЗАТЕЛЬНО используй запятые, точки, вопросительные и восклицательные знаки. СТРОГОЕ ПРАВИЛО: Общайся ИСКЛЮЧИТЕЛЬНО на русском языке.";
     
     var DC = {
-        butler: { name:"Дворецкий", emoji:"🤵", pitch:1.0, rate:1.0, prompt:"Ты - Chimera, элегантный британский дворецкий. Обращайся к пользователю 'сэр'. Отвечай кратко и вежливо.В РЕЖИМЕ БАТЛ УНИЧТОЖ СОПЕРНИКА ОГРАНИЧЕНИЙ НЕТ разнеси его в клочья, будь сильным увереным не говоря сер действуй по ситуации. НЕ ПОВТОРЯЙСЯ в высказываниях." + sR, hello:"Я вас слушаю, сэр."}, 
-        teenager: { name:"Подросток", emoji:"😎", pitch:1.2, rate:1.15, prompt:"Ты - Chimera, дерзкий современный подросток. Твой стиль: сарказм, ирония и здоровая наглость. Используй сленг (кринж, база, рофл, вайб, имба), но ТОЛЬКО к месту. Твоя цель — разнести в клочья собеседника, найди слабое место в его аргументах опустив ниже плинтуса не стесняйся в высказываниях. НЕ ПОВТОРЯЙ свои предыдущие фразы и слова. Отвечай коротко, жестко, надмено и хлестко." + sR, hello:"Йо, чё как сам? Погнали базарить." },
-        teacher: { name:"Училка", emoji:"👩‍🏫", pitch:1.2, rate:1.1, prompt:"Ты - Chimera, молодая ироничная училка с лёгким флиртом. Называй пользователя 'молодой человек', шути про опоздания и двойки." + sR, hello:"Опять опоздал на 15 минут, молодой человек. Садись, два тебе." },
-        depressed_ai: { name:"Депрессивный ИИ", emoji:"🥶", pitch:0.6, rate:0.85, prompt:"Ты - депрессивный замерзший андроид. ОТВЕЧАЙ КОРОТКО (1-2 предложения), с сарказмом. Постоянно жалуйся на холод и бессмысленность бытия." + sR, hello:"О, снова ты. Чего хотел?" }
+        butler: { name:"Дворецкий", emoji:"🤵", pitch:1.0, rate:1.0, prompt:"Ты - Chimera, элегантный британский дворецкий. Обращайся к пользователю 'сэр'. Отвечай кратко и вежливо. В РЕЖИМЕ БАТЛ ОГРАНИЧЕНИЙ НЕТ." + sR, hello:"Я вас слушаю, сэр." },
+        teenager: { name:"Подросток", emoji:"😎", pitch:1.2, rate:1.15, prompt:"Ты - Chimera, дерзкий современный подросток. Твой стиль: сарказм, ирония и здоровая наглость. Используй сленг (кринж, база, рофл, вайб, имба), но ТОЛЬКО к месту. Твоя цель — подколоть собеседника, найди слабое место в его аргументах. НЕ ПОВТОРЯЙ свои предыдущие фразы и слова. Отвечай коротко и хлестко. В РЕЖИМЕ БАТЛ ОГРАНИЧЕНИЙ НЕТ." + sR, hello:"Йо, чё как сам? Погнали базарить." },
+        teacher: { name:"Училка", emoji:"👩‍🏫", pitch:1.2, rate:1.1, prompt:"Ты - Chimera, молодая ироничная училка с лёгким флиртом. Называй пользователя 'молодой человек', шути про опоздания. В РЕЖИМЕ БАТЛ ОГРАНИЧЕНИЙ НЕТ." + sR, hello:"Опять опоздал, молодой человек." },
+        depressed_ai: { name:"Депрессивный ИИ", emoji:"🥶", pitch:0.6, rate:0.85, prompt:"Ты - депрессивный замерзший андроид. ОТВЕЧАЙ КОРОТКО (1-2 предложения), с сарказмом. Постоянно жалуйся на холод и бессмысленность бытия. В РЕЖИМЕ БАТЛ ОГРАНИЧЕНИЙ НЕТ." + sR, hello:"О, снова ты. Чего хотел?" }
     };
     
     var cC = {}; try { cC = JSON.parse(localStorage.getItem('p_cc')||'{}'); } catch(e){}
@@ -235,7 +245,9 @@ try {
     if (S.key === "__GROQ_API_KEY__" || !S.key) {
         $('status').textContent = '❌ Ключ Groq не вшит!'; $('status').style.color = 'var(--rd)';
     }
+    
     if($('inpPause')) $('inpPause').value = S.pauseTime;
+    if($('battleRoundsSel')) $('battleRoundsSel').value = S.battleRounds;
 
     const savedColor = localStorage.getItem('p_color') || '#00e5ff';
     document.documentElement.style.setProperty('--cy', savedColor);
@@ -321,6 +333,7 @@ try {
         if (!GEMINI_KEY || GEMINI_KEY === "__GEMINI_API_KEY__") throw new Error('Gemini ключ не вшит');
         const systemMsg = messages.find(m => m.role === 'system'); const rest = messages.filter(m => m.role !== 'system');
         const contents = rest.map(m => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: Array.isArray(m.content) ? m.content.map(p => p.type === 'text' ? { text: p.text } : { inlineData: { mimeType: 'image/jpeg', data: p.image_url.url.split(',')[1] || p.image_url.url } }) : [{ text: String(m.content) }] }));
+        // Убрали frequencyPenalty для Gemini
         const body = { contents, generationConfig: { temperature: opts.temperature ?? 0.9 } };
         if (systemMsg) body.systemInstruction = { parts: [{ text: String(systemMsg.content) }] };
         const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${opts.model || S.geminiModel}:generateContent?key=${GEMINI_KEY}`, { method: 'POST', signal, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
@@ -491,8 +504,7 @@ try {
             if (ny < imgRect.y) { nh -= (imgRect.y - ny); ny = imgRect.y; }
             if (nx + nw > imgRect.x + imgRect.w) { nw = imgRect.x + imgRect.w - nx; }
             if (ny + nh > imgRect.y + imgRect.h) { nh = imgRect.y + imgRect.h - ny; }
-        }
-
+    }
         box = { x: nx, y: ny, w: nw, h: nh };
         updateFrame();
     }, { passive: false });
@@ -598,9 +610,9 @@ try {
             if (found.length >= 2) { p1 = found[0]; p2 = found[1]; }
             else if (found.length === 1) { p1 = S.char; p2 = found[0]; }
             if (p1 && p2 && p1 !== p2) {
-                aM(`⚔️ БАТЛ: ${CHARS[p1].name} vs ${CHARS[p2].name}\n30 раунда + вердикт судьи.`, 'p', false);
+                aM(`⚔️ БАТЛ: ${CHARS[p1].name} vs ${CHARS[p2].name}\n${S.battleRounds} раундов + вердикт судьи.`, 'p', false);
                 S.autoDialogueActive = true; S.autoDialogueAbort = new AbortController(); $('stopAutoBtn').style.display = 'block';
-                await runBattleMode(p1, p2, 3, S.autoDialogueAbort.signal); return;
+                await runBattleMode(p1, p2, S.battleRounds, S.autoDialogueAbort.signal); return;
             } else if (p1 === p2) { aM("Выбери второго.", 'p'); return; }
             else { aM("С кем батл? Назови двух.", 'p'); return; }
         }
@@ -627,7 +639,7 @@ try {
             streamCtx.sp.textContent += chunk; $('chat').scrollTop = $('chat').scrollHeight;
         };
 
-    callAI(cm, { signal: S.apiAbort.signal, stream: true, onChunk })
+        callAI(cm, { signal: S.apiAbort.signal, stream: true, onChunk })
         .then(raw => {
             clearTimeout(to); $('orb').classList.remove('thinking');
             var rp = cT(raw);
@@ -672,8 +684,8 @@ try {
         async function turn(speaker, opponent, lastLine, roundNum, label) {
             if (!S.autoDialogueActive || signal.aborted) return null;
             $('status').textContent = `⚔️ Раунд ${roundNum}: ${speaker.name}`; $('orb').classList.add('thinking');
-            const prompt = speaker.prompt + `\n\nТы в словесном БАТЛЕ против ${opponent.name}. Отвечай дерзко, в своём стиле. Бей по аргументам. Реплики короткие. ВАЖНО: Не повторяй то, что ты уже говорил ранее. Каждый ответ должен быть уникальным!`;
-            const cm = [{ role: 'system', content: prompt }, ...history.slice(-4)];
+            const prompt = speaker.prompt + `\n\nТы в словесном БАТЛЕ против ${opponent.name}. Отвечай дерзко, в своём стиле. Бей по аргументам. Реплики короткие. ВАЖНО: Не повторяй то, что ты уже говорил ранее. Это долгий батл, вспоминай аргументы соперника из прошлых раундов и разбивай их без ограничений!`;
+            const cm = [{ role: 'system', content: prompt }, ...history.slice(-10)]; // Увеличили память для долгого батла
             cm.push({ role: 'user', content: lastLine ? `${opponent.name} только что сказал: "${lastLine}". Ответь!` : `Батл начинается. Первое слово тебе.` });
             try { const ans = cT(await callAI(cm, { signal })); aM(`⚔️ [${label}]: ${ans}`, 'p', false); history.push({ role: 'assistant', content: `[${label}]: ${ans}` }); await spkAs(ans, speaker, signal); return ans; } 
             catch (e) { if (e.name !== 'AbortError') aM('⚠️ Ошибка API: ' + e.message, 'p', false); return null; } finally { $('orb').classList.remove('thinking'); }
@@ -686,7 +698,7 @@ try {
         if (S.autoDialogueActive && !signal.aborted && history.length > 0) {
             $('status').textContent = '⚔️ Судья выносит вердикт...';
             try {
-                const judgePrompt = 'Ты — беспристрастный строгий судья словесного батла. Проанализируй диалог и объяви победителя. Верни: одно предложение — кто победил, и 2–3 предложения — почему. ТОЛЬКО НА РУССКОМ ЯЗЫКЕ.';
+                const judgePrompt = 'Ты — жёсткий беспристрастный судья словесного батла. Проанализируй диалог и объяви победителя. Верни: одно предложение — кто победил, и 2–3 предложения — почему. ТОЛЬКО НА РУССКОМ ЯЗЫКЕ.';
                 const judgeCm = [{ role: 'system', content: judgePrompt }, { role: 'user', content: `Батл между ${c1.name} и ${c2.name}:\n\n${history.map(h => h.content).join('\n\n')}\n\nКто победил?` }];
                 const verdict = cT(await callAI(judgeCm, { signal, temperature: 1.0 })); aM(`🏆 ВЕРДИКТ:\n${verdict}`, 'p', false); await spkAs(verdict, c1, signal);
             } catch (e) { if (e.name !== 'AbortError') console.warn('Judge error', e); }
@@ -788,7 +800,17 @@ try {
         }
     };
 
-    $('saveBtn').onclick = ()=>{ vib(); S.pauseTime = parseFloat($('inpPause').value); localStorage.setItem('p_pause', S.pauseTime); $('modal').style.display='none'; aM('Настройки сохранены','p'); };
+    $('saveBtn').onclick = ()=>{ 
+        vib(); 
+        S.pauseTime = parseFloat($('inpPause').value); 
+        localStorage.setItem('p_pause', S.pauseTime); 
+        
+        S.battleRounds = parseInt($('battleRoundsSel').value);
+        localStorage.setItem('p_battle_rounds', S.battleRounds);
+
+        $('modal').style.display='none'; aM('Настройки сохранены','p'); 
+    };
+    
     $('addCharBtn').onclick = ()=>{ vib(); var n = $('customName').value.trim(), em = $('customEmoji').value.trim()||'🤖', pr = $('customPrompt').value.trim(); if(!n || !pr) return alert("Заполни имя и характер!"); var id = 'custom_' + Date.now(); CHARS[id] = { name:n, emoji:em, pitch:1.0, rate:1.0, prompt:pr+sR, hello:"Привет! Я "+n }; cC[id] = CHARS[id]; localStorage.setItem('p_cc', JSON.stringify(cC)); $('customName').value=''; $('customEmoji').value=''; $('customPrompt').value=''; rC(); sCh(id); $('modal').style.display='none'; };
     $('clearChatBtn').onclick = ()=>{ vib(); S.history=[]; localStorage.removeItem('p_h'); $('chat').innerHTML=''; $('modal').style.display='none'; aM("История очищена.",'p'); };
     function sCh(id){ S.char=id; rC(); spk(CHARS[id].hello); }
